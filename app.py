@@ -8,6 +8,7 @@ import json
 import uuid
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+import sqlite3
 
 # .env 파일 로드
 load_dotenv()
@@ -458,9 +459,16 @@ def get_order_items_text(cart_items):
 
 # 초기 데이터 생성
 def create_sample_data():
-    """샘플 데이터 생성"""
+    """샘플 데이터 생성 (기존 데이터가 없을 때만)"""
     with app.app_context():
         db.create_all()
+        
+        # 기존 데이터가 있으면 샘플 데이터 생성하지 않음
+        if Category.query.first() or Product.query.first():
+            print("기존 데이터가 존재합니다. 샘플 데이터를 생성하지 않습니다.")
+            return
+        
+        print("샘플 데이터를 생성합니다...")
         
         # 기본 카테고리 생성
         categories = [
@@ -471,27 +479,27 @@ def create_sample_data():
         ]
         
         for category in categories:
-            existing = Category.query.filter_by(name=category.name).first()
-            if not existing:
-                db.session.add(category)
-        
-        # 기존 상품이 없으면 샘플 상품 생성
-        if not Product.query.first():
-            sample_products = [
-                Product(name='삼각김밥', price=1500, category='음식', description='신선한 삼각김밥', stock=20),
-                Product(name='라면', price=1200, category='음식', description='맛있는 라면', stock=15),
-                Product(name='커피', price=2000, category='음료', description='따뜻한 커피', stock=30),
-                Product(name='콜라', price=1500, category='음료', description='시원한 콜라', stock=25),
-                Product(name='과자', price=1000, category='간식', description='바삭한 과자', stock=40),
-                Product(name='껌', price=500, category='간식', description='상쾌한 껌', stock=50),
-                Product(name='휴지', price=3000, category='생활용품', description='부드러운 휴지', stock=10),
-                Product(name='치약', price=2000, category='생활용품', description='깨끗한 치약', stock=8)
-            ]
-            
-            for product in sample_products:
-                db.session.add(product)
+            db.session.add(category)
         
         db.session.commit()
+        
+        # 샘플 상품 생성
+        sample_products = [
+            Product(name='삼각김밥', price=1500, category='음식', description='신선한 삼각김밥', stock=20),
+            Product(name='라면', price=1200, category='음식', description='맛있는 라면', stock=15),
+            Product(name='커피', price=2000, category='음료', description='따뜻한 커피', stock=30),
+            Product(name='콜라', price=1500, category='음료', description='시원한 콜라', stock=25),
+            Product(name='과자', price=1000, category='간식', description='바삭한 과자', stock=40),
+            Product(name='껌', price=500, category='간식', description='상쾌한 껌', stock=50),
+            Product(name='휴지', price=3000, category='생활용품', description='부드러운 휴지', stock=10),
+            Product(name='치약', price=2000, category='생활용품', description='깨끗한 치약', stock=8)
+        ]
+        
+        for product in sample_products:
+            db.session.add(product)
+        
+        db.session.commit()
+        print("샘플 데이터 생성 완료!")
 
 def allowed_file(filename):
     """허용된 파일 확장자인지 확인"""
