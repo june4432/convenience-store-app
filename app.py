@@ -717,4 +717,14 @@ def delete_category(category_id):
 
 if __name__ == '__main__':
     create_sample_data()
-    app.run(debug=True, host="0.0.0.0", port=5000) 
+    # SSL 관련 로그를 줄이기 위한 설정
+    import logging
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+    
+    print("=" * 50)
+    print("🐱 대환장편의점 서버가 시작되었습니다!")
+    print("📍 접속 주소: http://localhost:5000")
+    print("🌐 네트워크 접속: http://[서버IP]:5000")
+    print("=" * 50)
+    
+    app.run(debug=True, host="0.0.0.0", port=5000)
