@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}카테고리 관리{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-tags"></i> 카테고리 관리</h2>
+        <a href="{{ url_for('admin') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> 관리자 페이지로
+        </a>
+    </div>
+    
+    <!-- 카테고리 추가 섹션 -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="fas fa-plus"></i> 카테고리 추가</h4>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('add_category') }}" method="POST">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">카테고리명 *</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="icon" class="form-label">아이콘</label>
+                            <select class="form-select" id="icon" name="icon">
+                                <option value="fas fa-box">📦 기본</option>
+                                <option value="fas fa-utensils">🍽️ 음식</option>
+                                <option value="fas fa-coffee">☕ 음료</option>
+                                <option value="fas fa-cookie-bite">🍪 간식</option>
+                                <option value="fas fa-tshirt">👕 의류</option>
+                                <option value="fas fa-home">🏠 생활용품</option>
+                                <option value="fas fa-book">📚 도서</option>
+                                <option value="fas fa-gamepad">🎮 게임</option>
+                                <option value="fas fa-heart">💊 건강</option>
+                                <option value="fas fa-baby">👶 육아용품</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="color" class="form-label">색상</label>
+                            <select class="form-select" id="color" name="color">
+                                <option value="text-secondary">회색</option>
+                                <option value="text-primary">파란색</option>
+                                <option value="text-success">초록색</option>
+                                <option value="text-warning">노란색</option>
+                                <option value="text-danger">빨간색</option>
+                                <option value="text-info">하늘색</option>
+                                <option value="text-dark">검은색</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="description" class="form-label">설명</label>
+                            <input type="text" class="form-control" id="description" name="description" placeholder="카테고리 설명">
+                        </div>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> 카테고리 추가
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 카테고리 목록 섹션 -->
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0"><i class="fas fa-list"></i> 카테고리 목록</h4>
+        </div>
+        <div class="card-body">
+            {% if categories %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>아이콘</th>
+                            <th>카테고리명</th>
+                            <th>설명</th>
+                            <th>상품 수</th>
+                            <th>생성일</th>
+                            <th>관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for category in categories %}
+                        <tr>
+                            <td>
+                                <i class="{{ category.icon }} {{ category.color }} fa-2x"></i>
+                            </td>
+                            <td>
+                                <strong>{{ category.name }}</strong>
+                            </td>
+                            <td>
+                                {% if category.description %}
+                                    {{ category.description }}
+                                {% else %}
+                                    <span class="text-muted">설명 없음</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ category.products|length }}개</span>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ category.created_at.strftime('%Y-%m-%d') }}</small>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" onclick="editCategory({{ category.id }})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory({{ category.id }})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-tags fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">등록된 카테고리가 없습니다</h5>
+                <p class="text-muted">위의 폼을 사용하여 첫 번째 카테고리를 추가해보세요.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 카테고리 수정 모달 -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">카테고리 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editCategoryForm">
+                    <div class="mb-3">
+                        <label for="edit-name" class="form-label">카테고리명 *</label>
+                        <input type="text" class="form-control" id="edit-name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-icon" class="form-label">아이콘</label>
+                        <select class="form-select" id="edit-icon" name="icon">
+                            <option value="fas fa-box">📦 기본</option>
+                            <option value="fas fa-utensils">🍽️ 음식</option>
+                            <option value="fas fa-coffee">☕ 음료</option>
+                            <option value="fas fa-cookie-bite">🍪 간식</option>
+                            <option value="fas fa-tshirt">👕 의류</option>
+                            <option value="fas fa-home">🏠 생활용품</option>
+                            <option value="fas fa-book">📚 도서</option>
+                            <option value="fas fa-gamepad">🎮 게임</option>
+                            <option value="fas fa-heart">💊 건강</option>
+                            <option value="fas fa-baby">👶 육아용품</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-color" class="form-label">색상</label>
+                        <select class="form-select" id="edit-color" name="color">
+                            <option value="text-secondary">회색</option>
+                            <option value="text-primary">파란색</option>
+                            <option value="text-success">초록색</option>
+                            <option value="text-warning">노란색</option>
+                            <option value="text-danger">빨간색</option>
+                            <option value="text-info">하늘색</option>
+                            <option value="text-dark">검은색</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-description" class="form-label">설명</label>
+                        <input type="text" class="form-control" id="edit-description" name="description">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="saveCategoryEdit()">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 카테고리 수정
+function editCategory(categoryId) {
+    fetch(`/admin/category/${categoryId}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('edit-name').value = data.name;
+            document.getElementById('edit-icon').value = data.icon;
+            document.getElementById('edit-color').value = data.color;
+            document.getElementById('edit-description').value = data.description || '';
+            
+            document.getElementById('editCategoryForm').dataset.categoryId = categoryId;
+            new bootstrap.Modal(document.getElementById('editCategoryModal')).show();
+        });
+}
+
+// 카테고리 수정 저장
+function saveCategoryEdit() {
+    const form = document.getElementById('editCategoryForm');
+    const categoryId = form.dataset.categoryId;
+    const formData = new FormData(form);
+    
+    fetch(`/admin/category/${categoryId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('카테고리 수정에 실패했습니다: ' + data.error);
+        }
+    });
+}
+
+// 카테고리 삭제
+function deleteCategory(categoryId) {
+    if (confirm('정말로 이 카테고리를 삭제하시겠습니까?')) {
+        fetch(`/admin/category/${categoryId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('카테고리 삭제에 실패했습니다: ' + data.error);
+            }
+        });
+    }
+}
+</script>
+{% endblock %} 

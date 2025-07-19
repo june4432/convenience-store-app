@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}장바구니 - 편의점 쇼핑몰{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col">
+        <h2 class="mb-4">
+            <i class="fas fa-shopping-cart text-success"></i> 장바구니
+        </h2>
+    </div>
+</div>
+
+{% if cart_items %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">선택한 상품</h5>
+            </div>
+            <div class="card-body">
+                {% for item in cart_items %}
+                <div class="row align-items-center mb-3 pb-3 border-bottom">
+                    <div class="col-md-2 text-center">
+                        <i class="fas fa-box fa-2x text-muted"></i>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="mb-1">{{ item.product.name }}</h6>
+                        <small class="text-muted">{{ item.product.description }}</small>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <span class="text-success fw-bold">₩{{ "{:,}".format(item.product.price) }}</span>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <span class="badge bg-secondary">{{ item.quantity }}개</span>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <span class="text-success fw-bold">₩{{ "{:,}".format(item.total) }}</span>
+                    </div>
+                    <div class="col-md-12 mt-2">
+                        <a href="{{ url_for('remove_from_cart', product_id=item.product.id) }}" 
+                           class="btn btn-outline-danger btn-sm"
+                           onclick="return confirm('정말로 이 상품을 장바구니에서 제거하시겠습니까?')">
+                            <i class="fas fa-trash"></i> 제거
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">주문 요약</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <span>총 상품 수:</span>
+                    <span class="fw-bold">{{ cart_items|length }}개</span>
+                </div>
+                <div class="d-flex justify-content-between mb-3">
+                    <span>총 수량:</span>
+                    <span class="fw-bold">
+                        {% set total_quantity = 0 %}
+                        {% for item in cart_items %}
+                            {% set total_quantity = total_quantity + item.quantity %}
+                        {% endfor %}
+                        {{ total_quantity }}개
+                    </span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between mb-3">
+                    <span class="h5">총 금액:</span>
+                    <span class="h5 text-success fw-bold">₩{{ "{:,}".format(total) }}</span>
+                </div>
+                <button id="tossPaymentBtn" class="btn btn-success btn-lg w-100" onclick="window.location.href='{{ url_for('payment_widget') }}'">
+                    <i class="fas fa-credit-card"></i> 토스페이먼츠로 결제하기
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col text-center">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left"></i> 쇼핑 계속하기
+        </a>
+    </div>
+</div>
+
+{% else %}
+<div class="row">
+    <div class="col text-center">
+        <div class="card">
+            <div class="card-body py-5">
+                <i class="fas fa-shopping-cart fa-4x text-muted mb-4"></i>
+                <h4 class="text-muted">장바구니가 비어있습니다</h4>
+                <p class="text-muted">상품을 선택하여 장바구니에 추가해보세요!</p>
+                <a href="{{ url_for('index') }}" class="btn btn-primary">
+                    <i class="fas fa-store"></i> 쇼핑하러 가기
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<!-- 간단한 스크립트만 유지 -->
+<script>
+    // 결제 버튼 클릭 이벤트는 HTML onclick으로 처리
+    console.log('장바구니 페이지 로드됨');
+</script>
+{% endblock %} 

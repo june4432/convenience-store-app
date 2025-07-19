@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% block title %}관리자 - 편의점 쇼핑몰{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-cog"></i> 관리자 페이지</h2>
+        <div>
+            <a href="{{ url_for('admin_categories') }}" class="btn btn-outline-info me-2">
+                <i class="fas fa-tags"></i> 카테고리 관리
+            </a>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> 쇼핑몰로
+            </a>
+        </div>
+    </div>
+    
+    <!-- 상품 등록 섹션 -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="fas fa-plus"></i> 상품 등록</h4>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('add_product') }}" method="POST" enctype="multipart/form-data">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">상품명 *</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="price" class="form-label">가격 (원) *</label>
+                            <input type="number" class="form-control" id="price" name="price" min="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="category" class="form-label">카테고리 *</label>
+                            <select class="form-select" id="category" name="category" required>
+                                <option value="">카테고리 선택</option>
+                                {% for category in categories %}
+                                <option value="{{ category.name }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="stock" class="form-label">재고 수량 *</label>
+                            <input type="number" class="form-control" id="stock" name="stock" min="0" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="description" class="form-label">상품 설명</label>
+                            <textarea class="form-control" id="description" name="description" rows="4" placeholder="상품에 대한 상세한 설명을 입력하세요..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="image" class="form-label">상품 이미지</label>
+                            <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                            <div class="form-text">JPG, PNG, GIF 파일만 업로드 가능합니다. (최대 5MB)</div>
+                        </div>
+                        <div class="mb-3">
+                            <div id="image-preview" class="d-none">
+                                <img id="preview-img" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> 상품 등록
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 상품 목록 섹션 -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0"><i class="fas fa-list"></i> 상품 목록</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>이미지</th>
+                            <th>상품명</th>
+                            <th>카테고리</th>
+                            <th>가격</th>
+                            <th>재고</th>
+                            <th>관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in products %}
+                        <tr>
+                            <td>
+                                {% if product.image_url %}
+                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" style="width: 50px; height: 50px; object-fit: cover;" class="rounded">
+                                {% else %}
+                                    <div class="bg-light d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                        <i class="fas fa-image text-muted"></i>
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ product.name }}</strong>
+                                {% if product.description %}
+                                    <br><small class="text-muted">{{ product.description[:50] }}{% if product.description|length > 50 %}...{% endif %}</small>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge bg-secondary">{{ product.category }}</span></td>
+                            <td>{{ "{:,.0f}".format(product.price) }}원</td>
+                            <td>
+                                <span class="badge {% if product.stock > 10 %}bg-success{% elif product.stock > 0 %}bg-warning{% else %}bg-danger{% endif %}">
+                                    {{ product.stock }}개
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" onclick="editProduct({{ product.id }})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct({{ product.id }})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 주문 관리 섹션 -->
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0"><i class="fas fa-shopping-bag"></i> 주문 관리</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>주문번호</th>
+                            <th>고객명</th>
+                            <th>연락처</th>
+                            <th>총 금액</th>
+                            <th>주문일시</th>
+                            <th>상태</th>
+                            <th>관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td>#{{ order.id }}</td>
+                            <td>{{ order.customer_name }}</td>
+                            <td>{{ order.customer_phone }}</td>
+                            <td>{{ "{:,.0f}".format(order.total_amount) }}원</td>
+                            <td>{{ order.order_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                <span class="badge {% if order.status == 'completed' %}bg-success{% elif order.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                    {{ order.status }}
+                                </span>
+                            </td>
+                            <td>
+                                <select class="form-select form-select-sm" onchange="updateOrderStatus({{ order.id }}, this.value)">
+                                    <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>대기중</option>
+                                    <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>처리중</option>
+                                    <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>완료</option>
+                                    <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>취소</option>
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 상품 수정 모달 -->
+<div class="modal fade" id="editProductModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">상품 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editProductForm" enctype="multipart/form-data">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-name" class="form-label">상품명 *</label>
+                                <input type="text" class="form-control" id="edit-name" name="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="edit-price" class="form-label">가격 (원) *</label>
+                                <input type="number" class="form-control" id="edit-price" name="price" min="0" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="edit-category" class="form-label">카테고리 *</label>
+                                <select class="form-select" id="edit-category" name="category" required>
+                                    <option value="음식">음식</option>
+                                    <option value="음료">음료</option>
+                                    <option value="간식">간식</option>
+                                    <option value="생활용품">생활용품</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="edit-stock" class="form-label">재고 수량 *</label>
+                                <input type="number" class="form-control" id="edit-stock" name="stock" min="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-description" class="form-label">상품 설명</label>
+                                <textarea class="form-control" id="edit-description" name="description" rows="4"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="edit-image" class="form-label">상품 이미지</label>
+                                <input type="file" class="form-control" id="edit-image" name="image" accept="image/*">
+                            </div>
+                            <div class="mb-3">
+                                <div id="edit-image-preview">
+                                    <img id="edit-preview-img" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="saveProductEdit()">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 이미지 미리보기
+document.getElementById('image').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('preview-img').src = e.target.result;
+            document.getElementById('image-preview').classList.remove('d-none');
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// 상품 수정
+function editProduct(productId) {
+    // 상품 정보를 가져와서 모달에 채우기
+    fetch(`/admin/product/${productId}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('edit-name').value = data.name;
+            document.getElementById('edit-price').value = data.price;
+            document.getElementById('edit-category').value = data.category;
+            document.getElementById('edit-stock').value = data.stock;
+            document.getElementById('edit-description').value = data.description || '';
+            
+            if (data.image_url) {
+                document.getElementById('edit-preview-img').src = data.image_url;
+                document.getElementById('edit-image-preview').style.display = 'block';
+            } else {
+                document.getElementById('edit-image-preview').style.display = 'none';
+            }
+            
+            document.getElementById('editProductForm').dataset.productId = productId;
+            new bootstrap.Modal(document.getElementById('editProductModal')).show();
+        });
+}
+
+// 상품 수정 저장
+function saveProductEdit() {
+    const form = document.getElementById('editProductForm');
+    const productId = form.dataset.productId;
+    const formData = new FormData(form);
+    
+    fetch(`/admin/product/${productId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('상품 수정에 실패했습니다: ' + data.error);
+        }
+    });
+}
+
+// 상품 삭제
+function deleteProduct(productId) {
+    if (confirm('정말로 이 상품을 삭제하시겠습니까?')) {
+        fetch(`/admin/product/${productId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('상품 삭제에 실패했습니다: ' + data.error);
+            }
+        });
+    }
+}
+
+// 주문 상태 업데이트
+function updateOrderStatus(orderId, status) {
+    fetch(`/admin/order/${orderId}/status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 성공 메시지 표시
+            const toast = document.createElement('div');
+            toast.className = 'position-fixed top-0 end-0 p-3';
+            toast.style.zIndex = '1050';
+            toast.innerHTML = `
+                <div class="toast show" role="alert">
+                    <div class="toast-header">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        <strong class="me-auto">상태 업데이트</strong>
+                        <button type="button" class="btn-close" onclick="this.parentElement.parentElement.parentElement.remove()"></button>
+                    </div>
+                    <div class="toast-body">
+                        주문 상태가 업데이트되었습니다.
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 3000);
+        } else {
+            alert('주문 상태 업데이트에 실패했습니다: ' + data.error);
+        }
+    });
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,553 @@
+{% extends "base.html" %}
+
+{% block title %}편의점 POS 시스템{% endblock %}
+
+{% block content %}
+<div class="container-fluid h-100">
+    <div class="row h-100">
+        <!-- 왼쪽: 상품 목록 -->
+        <div class="col-md-8 h-100">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-shopping-basket"></i> 상품 목록
+                    </h4>
+                </div>
+                <div class="card-body p-0">
+                    <!-- 카테고리 필터 -->
+                    <div class="p-3 border-bottom">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary active" data-category="all">전체</button>
+                            {% for category in categories %}
+                            <button type="button" class="btn btn-outline-primary" data-category="{{ category.name }}">
+                                <i class="{{ category.icon }} {{ category.color }} me-1"></i>{{ category.name }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- 상품 그리드 -->
+                    <div class="p-3">
+                        <div class="row" id="products-container">
+                            {% for product in products %}
+                            <div class="col-md-4 col-lg-3 mb-3 product-item" data-category="{{ product.category }}">
+                                <div class="card h-100 product-card">
+                                    <div class="card-body text-center">
+                                        <!-- 상품 이미지 -->
+                                        <div class="product-image mb-3">
+                                            {% if product.image_url %}
+                                                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid rounded" style="max-height: 80px; object-fit: cover;">
+                                            {% else %}
+                                                <div class="product-icon">
+                                                    {% if product.category == '음식' %}
+                                                        <i class="fas fa-utensils fa-2x text-warning"></i>
+                                                    {% elif product.category == '음료' %}
+                                                        <i class="fas fa-coffee fa-2x text-info"></i>
+                                                    {% elif product.category == '간식' %}
+                                                        <i class="fas fa-cookie-bite fa-2x text-success"></i>
+                                                    {% else %}
+                                                        <i class="fas fa-box fa-2x text-secondary"></i>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <h6 class="card-title">{{ product.name }}</h6>
+                                        {% if product.description %}
+                                            <p class="card-text text-muted small">{{ product.description[:50] }}{% if product.description|length > 50 %}...{% endif %}</p>
+                                        {% endif %}
+                                        <div class="price-tag mb-2">
+                                            <span class="badge bg-primary fs-6">{{ "{:,.0f}".format(product.price) }}원</span>
+                                        </div>
+                                        <div class="stock-info mb-2">
+                                            <small class="text-muted">재고: {{ product.stock }}개</small>
+                                        </div>
+                                        <button class="btn btn-success btn-sm w-100 add-to-cart-btn" 
+                                                data-product-id="{{ product.id }}"
+                                                data-product-name="{{ product.name }}"
+                                                data-product-price="{{ product.price }}">
+                                            <i class="fas fa-plus"></i> 장바구니 추가
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 오른쪽: 장바구니 -->
+        <div class="col-md-4 h-100">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-shopping-cart"></i> 장바구니
+                    </h4>
+                </div>
+                <div class="card-body p-0 d-flex flex-column">
+                    <!-- 장바구니 아이템 목록 -->
+                    <div class="flex-grow-1 p-3" id="cart-items-container">
+                        <div id="cart-items">
+                            <!-- 장바구니 아이템들이 여기에 동적으로 추가됩니다 -->
+                        </div>
+                        <div id="empty-cart" class="text-center text-muted py-5">
+                            <i class="fas fa-shopping-cart fa-3x mb-3"></i>
+                            <p>장바구니가 비어있습니다</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 장바구니 요약 -->
+                    <div class="border-top p-3">
+                        <div class="row mb-2">
+                            <div class="col-6">총 수량:</div>
+                            <div class="col-6 text-end" id="total-quantity">0개</div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6"><strong>총 금액:</strong></div>
+                            <div class="col-6 text-end"><strong id="total-amount">0원</strong></div>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-primary" id="checkout-btn" disabled>
+                                <i class="fas fa-credit-card"></i> 토스페이먼츠로 결제하기
+                            </button>
+                            <button class="btn btn-outline-secondary" id="clear-cart-btn" disabled>
+                                <i class="fas fa-trash"></i> 장바구니 비우기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 결제 결과 모달 -->
+<div class="modal fade" id="paymentResultModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" id="resultModalHeader">
+                <h5 class="modal-title" id="resultModalTitle">결제 결과</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center" id="resultModalBody">
+                <!-- 결과 내용이 여기에 동적으로 추가됩니다 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="closePaymentResult()">
+                    확인
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- 토스페이먼츠 SDK -->
+<script src="https://js.tosspayments.com/v2/standard"></script>
+
+<script>
+// 전역 변수
+let cart = {};
+const products = {{ products_data|tojson }};
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    loadCartFromSession();
+    updateCartDisplay();
+    setupEventListeners();
+    checkPaymentResult(); // 결제 결과 확인
+});
+
+// 이벤트 리스너 설정
+function setupEventListeners() {
+    // 상품 카드 클릭 이벤트 (카테고리 필터링 방지)
+    document.querySelectorAll('.product-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            // 장바구니 추가 버튼 클릭이 아닌 경우에만 기본 동작 방지
+            if (!e.target.closest('.add-to-cart-btn')) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+    });
+    
+    // 상품 추가 버튼
+    document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault(); // 기본 동작 방지
+            e.stopPropagation(); // 이벤트 전파 방지
+            
+            const productId = this.dataset.productId;
+            const productName = this.dataset.productName;
+            const productPrice = parseInt(this.dataset.productPrice);
+            addToCart(productId, productName, productPrice);
+        });
+    });
+    
+    // 카테고리 필터
+    document.querySelectorAll('[data-category]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault(); // 기본 동작 방지
+            const category = this.dataset.category;
+            filterProducts(category);
+            
+            // 활성 버튼 변경
+            document.querySelectorAll('[data-category]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+    
+    // 결제 버튼
+    document.getElementById('checkout-btn').addEventListener('click', function() {
+        if (Object.keys(cart).length > 0) {
+            // 바로 토스페이먼츠 결제창 열기
+            proceedToPayment();
+        }
+    });
+    
+    // 장바구니 비우기 버튼
+    document.getElementById('clear-cart-btn').addEventListener('click', function() {
+        if (confirm('장바구니를 비우시겠습니까?')) {
+            clearCart();
+        }
+    });
+}
+
+// 상품 필터링
+function filterProducts(category) {
+    const products = document.querySelectorAll('.product-item');
+    products.forEach(product => {
+        if (category === 'all' || product.dataset.category === category) {
+            product.style.display = 'block';
+        } else {
+            product.style.display = 'none';
+        }
+    });
+}
+
+// 장바구니에 상품 추가
+function addToCart(productId, productName, productPrice) {
+    // 숫자로 변환하여 안전하게 처리 (정수로 변환)
+    const price = Math.floor(parseFloat(productPrice)) || 0;
+    
+    if (cart[productId]) {
+        cart[productId].quantity += 1;
+    } else {
+        cart[productId] = {
+            name: productName,
+            price: price,
+            quantity: 1
+        };
+    }
+    
+    // 세션에 저장
+    saveCartToSession();
+    updateCartDisplay();
+    
+    // 시각적 피드백
+    showAddToCartFeedback(productName);
+}
+
+// 장바구니에서 상품 제거
+function removeFromCart(productId) {
+    if (cart[productId]) {
+        if (cart[productId].quantity > 1) {
+            cart[productId].quantity -= 1;
+        } else {
+            delete cart[productId];
+        }
+        
+        saveCartToSession();
+        updateCartDisplay();
+    }
+}
+
+// 장바구니 비우기
+function clearCart() {
+    cart = {};
+    saveCartToSession();
+    updateCartDisplay();
+}
+
+// 장바구니 표시 업데이트
+function updateCartDisplay() {
+    const cartContainer = document.getElementById('cart-items');
+    const emptyCart = document.getElementById('empty-cart');
+    const checkoutBtn = document.getElementById('checkout-btn');
+    const clearCartBtn = document.getElementById('clear-cart-btn');
+    
+    let totalQuantity = 0;
+    let totalAmount = 0;
+    
+    if (Object.keys(cart).length === 0) {
+        cartContainer.innerHTML = '';
+        emptyCart.style.display = 'block';
+        checkoutBtn.disabled = true;
+        clearCartBtn.disabled = true;
+    } else {
+        emptyCart.style.display = 'none';
+        checkoutBtn.disabled = false;
+        clearCartBtn.disabled = false;
+        
+        let cartHTML = '';
+        
+        for (const [productId, item] of Object.entries(cart)) {
+            // 안전한 숫자 변환 (정수로 변환)
+            const price = Math.floor(parseFloat(item.price)) || 0;
+            const quantity = parseInt(item.quantity) || 0;
+            const itemTotal = price * quantity;
+            
+            totalQuantity += quantity;
+            totalAmount += itemTotal;
+            
+            cartHTML += `
+                <div class="cart-item border-bottom pb-2 mb-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${item.name || '상품명 없음'}</h6>
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">${price.toLocaleString()}원 × ${quantity}</small>
+                                <strong>${itemTotal.toLocaleString()}원</strong>
+                            </div>
+                        </div>
+                        <div class="ms-2">
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${productId}')">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        cartContainer.innerHTML = cartHTML;
+    }
+    
+    // 총계 업데이트
+    document.getElementById('total-quantity').textContent = `${totalQuantity}개`;
+    document.getElementById('total-amount').textContent = `${totalAmount.toLocaleString()}원`;
+}
+
+// 세션에 장바구니 저장
+function saveCartToSession() {
+    fetch('/save_cart', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(cart)
+    });
+}
+
+// 세션에서 장바구니 로드
+function loadCartFromSession() {
+    fetch('/load_cart')
+        .then(response => response.json())
+        .then(data => {
+            if (data.cart && typeof data.cart === 'object') {
+                // 데이터 검증 및 정리
+                const validatedCart = {};
+                for (const [productId, item] of Object.entries(data.cart)) {
+                    if (item && typeof item === 'object') {
+                        validatedCart[productId] = {
+                            name: item.name || '상품명 없음',
+                            price: Math.floor(parseFloat(item.price)) || 0,
+                            quantity: parseInt(item.quantity) || 0
+                        };
+                    }
+                }
+                cart = validatedCart;
+                updateCartDisplay();
+            }
+        })
+        .catch(error => {
+            console.error('장바구니 로드 오류:', error);
+            cart = {};
+            updateCartDisplay();
+        });
+}
+
+// 장바구니 추가 피드백
+function showAddToCartFeedback(productName) {
+    // 토스트 메시지 또는 간단한 알림
+    const toast = document.createElement('div');
+    toast.className = 'position-fixed top-0 end-0 p-3';
+    toast.style.zIndex = '1050';
+    toast.innerHTML = `
+        <div class="toast show" role="alert">
+            <div class="toast-header">
+                <i class="fas fa-check-circle text-success me-2"></i>
+                <strong class="me-auto">장바구니 추가</strong>
+                <button type="button" class="btn-close" onclick="this.parentElement.parentElement.parentElement.remove()"></button>
+            </div>
+            <div class="toast-body">
+                ${productName}이(가) 장바구니에 추가되었습니다.
+            </div>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 3000);
+}
+
+// 결제 진행
+function proceedToPayment() {
+    // 기본 고객 정보 사용
+    const formData = new FormData();
+    formData.append('customer_name', '고객');
+    formData.append('customer_phone', '010-0000-0000');
+    formData.append('customer_email', 'customer@example.com');
+    
+    // 결제 요청
+    fetch('/payment/request', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 결제창 열기
+            const tossPayments = TossPayments(data.client_key);
+            const payment = tossPayments.payment({ customerKey: data.client_key });
+            
+            payment.requestPayment({
+                method: "CARD",
+                amount: {
+                    currency: "KRW",
+                    value: data.payment_data.amount.value
+                },
+                orderId: data.payment_data.orderId,
+                orderName: data.payment_data.orderName,
+                customerName: data.payment_data.customerName,
+                customerEmail: data.payment_data.customerEmail,
+                successUrl: data.payment_data.successUrl,
+                failUrl: data.payment_data.failUrl,
+                card: {
+                    useEscrow: false,
+                    flowMode: "DEFAULT",
+                    useCardPoint: false,
+                    useAppCardOnly: false,
+                },
+            });
+        } else {
+            alert('결제 요청에 실패했습니다: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('결제 요청 중 오류가 발생했습니다.');
+    });
+}
+
+// 결제 결과 모달 표시
+function showPaymentResult(success, message, orderId = null) {
+    const modal = new bootstrap.Modal(document.getElementById('paymentResultModal'));
+    const header = document.getElementById('resultModalHeader');
+    const title = document.getElementById('resultModalTitle');
+    const body = document.getElementById('resultModalBody');
+    
+    if (success) {
+        // 성공 모달
+        header.className = 'modal-header bg-success text-white';
+        title.textContent = '결제 완료';
+        body.innerHTML = `
+            <div class="py-4">
+                <i class="fas fa-check-circle text-success fa-4x mb-3"></i>
+                <h4 class="text-success mb-3">결제가 성공적으로 완료되었습니다!</h4>
+                <p class="mb-2">주문번호: <strong>${orderId || 'N/A'}</strong></p>
+                <p class="text-muted">감사합니다.</p>
+            </div>
+        `;
+    } else {
+        // 실패 모달
+        header.className = 'modal-header bg-danger text-white';
+        title.textContent = '결제 실패';
+        body.innerHTML = `
+            <div class="py-4">
+                <i class="fas fa-times-circle text-danger fa-4x mb-3"></i>
+                <h4 class="text-danger mb-3">결제에 실패했습니다</h4>
+                <p class="mb-2">${message}</p>
+                <p class="text-muted">다시 시도해주세요.</p>
+            </div>
+        `;
+    }
+    
+    modal.show();
+}
+
+// 결제 결과 모달 닫기
+function closePaymentResult() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('paymentResultModal'));
+    if (modal) {
+        modal.hide();
+    }
+    
+    // 성공 시 장바구니 비우기
+    if (document.getElementById('resultModalHeader').classList.contains('bg-success')) {
+        clearCart();
+    }
+    
+    // URL 파라미터 정리 (결제 관련 파라미터 제거)
+    const url = new URL(window.location);
+    const paramsToRemove = ['paymentKey', 'orderId', 'amount', 'success', 'code', 'message'];
+    paramsToRemove.forEach(param => url.searchParams.delete(param));
+    
+    // 히스토리 업데이트 (페이지 새로고침 없이 URL 변경)
+    window.history.replaceState({}, '', url);
+}
+
+// URL 파라미터에서 결제 결과 확인
+function checkPaymentResult() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentKey = urlParams.get('paymentKey');
+    const orderId = urlParams.get('orderId');
+    const amount = urlParams.get('amount');
+    const success = urlParams.get('success');
+    const errorCode = urlParams.get('code');
+    const errorMessage = urlParams.get('message');
+    
+    if (paymentKey && orderId && amount) {
+        // 결제 성공 처리
+        processPaymentSuccess(paymentKey, orderId, amount);
+    } else if (errorCode || errorMessage) {
+        // 결제 실패 처리
+        showPaymentResult(false, errorMessage || `오류 코드: ${errorCode}`);
+    }
+}
+
+// 결제 성공 처리
+function processPaymentSuccess(paymentKey, orderId, amount) {
+    // 서버에 결제 승인 요청
+    fetch('/payment/success', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            paymentKey: paymentKey,
+            orderId: orderId,
+            amount: amount
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showPaymentResult(true, '결제가 완료되었습니다.', orderId);
+        } else {
+            showPaymentResult(false, data.message || '결제 처리 중 오류가 발생했습니다.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showPaymentResult(false, '결제 처리 중 오류가 발생했습니다.');
+    });
+}
+</script>
+{% endblock %} 
