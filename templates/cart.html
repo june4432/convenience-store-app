@@ -1,112 +1,92 @@
 {% extends "base.html" %}
 
-{% block title %}장바구니 - 편의점 쇼핑몰{% endblock %}
+{% block title %}대환장편의점 - 장바구니{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col">
-        <h2 class="mb-4">
-            <i class="fas fa-shopping-cart text-success"></i> 장바구니
-        </h2>
-    </div>
-</div>
-
-{% if cart_items %}
-<div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">선택한 상품</h5>
-            </div>
-            <div class="card-body">
-                {% for item in cart_items %}
-                <div class="row align-items-center mb-3 pb-3 border-bottom">
-                    <div class="col-md-2 text-center">
-                        <i class="fas fa-box fa-2x text-muted"></i>
-                    </div>
-                    <div class="col-md-4">
-                        <h6 class="mb-1">{{ item.product.name }}</h6>
-                        <small class="text-muted">{{ item.product.description }}</small>
-                    </div>
-                    <div class="col-md-2 text-center">
-                        <span class="text-success fw-bold">₩{{ "{:,}".format(item.product.price) }}</span>
-                    </div>
-                    <div class="col-md-2 text-center">
-                        <span class="badge bg-secondary">{{ item.quantity }}개</span>
-                    </div>
-                    <div class="col-md-2 text-center">
-                        <span class="text-success fw-bold">₩{{ "{:,}".format(item.total) }}</span>
-                    </div>
-                    <div class="col-md-12 mt-2">
-                        <a href="{{ url_for('remove_from_cart', product_id=item.product.id) }}" 
-                           class="btn btn-outline-danger btn-sm"
-                           onclick="return confirm('정말로 이 상품을 장바구니에서 제거하시겠습니까?')">
-                            <i class="fas fa-trash"></i> 제거
-                        </a>
-                    </div>
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-shopping-cart me-2"></i>장바구니
+                    </h4>
                 </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">주문 요약</h5>
-            </div>
-            <div class="card-body">
-                <div class="d-flex justify-content-between mb-3">
-                    <span>총 상품 수:</span>
-                    <span class="fw-bold">{{ cart_items|length }}개</span>
-                </div>
-                <div class="d-flex justify-content-between mb-3">
-                    <span>총 수량:</span>
-                    <span class="fw-bold">
-                        {% set total_quantity = 0 %}
+                <div class="card-body">
+                    {% if cart_items %}
                         {% for item in cart_items %}
-                            {% set total_quantity = total_quantity + item.quantity %}
+                        <div class="cart-item p-3 mb-3 bg-light rounded">
+                            <div class="row align-items-center">
+                                <div class="col-md-2">
+                                    {% if item.image_url %}
+                                        <img src="{{ item.image_url }}" alt="{{ item.name }}" class="img-fluid rounded" style="height: 60px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center" style="height: 60px;">
+                                            <i class="fas fa-box fa-2x"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="mb-1">{{ item.name }}</h6>
+                                    <small class="text-muted">{{ item.category }}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <span class="badge bg-primary">{{ item.price:, }}원</span>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="input-group input-group-sm">
+                                        <button class="btn btn-outline-secondary" onclick="updateQuantity({{ item.id }}, -1)">-</button>
+                                        <input type="number" class="form-control text-center" value="{{ item.quantity }}" min="1" readonly>
+                                        <button class="btn btn-outline-secondary" onclick="updateQuantity({{ item.id }}, 1)">+</button>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <button class="btn btn-danger btn-sm" onclick="removeFromCart({{ item.id }})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         {% endfor %}
-                        {{ total_quantity }}개
-                    </span>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">장바구니가 비어있습니다</h5>
+                            <p class="text-muted">대환장편의점에서 맛있는 상품을 찾아보세요! 🐱</p>
+                            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                                <i class="fas fa-store me-1"></i>쇼핑 계속하기
+                            </a>
+                        </div>
+                    {% endif %}
                 </div>
-                <hr>
-                <div class="d-flex justify-content-between mb-3">
-                    <span class="h5">총 금액:</span>
-                    <span class="h5 text-success fw-bold">₩{{ "{:,}".format(total) }}</span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calculator me-2"></i>주문 요약
+                    </h5>
                 </div>
-                <button id="tossPaymentBtn" class="btn btn-success btn-lg w-100" onclick="window.location.href='{{ url_for('payment_widget') }}'">
-                    <i class="fas fa-credit-card"></i> 토스페이먼츠로 결제하기
-                </button>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>상품 수량:</span>
+                        <span>{{ total_quantity }}개</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <strong>총 금액:</strong>
+                        <strong class="text-success">{{ total_amount:, }}원</strong>
+                    </div>
+                    {% if cart_items %}
+                        <button class="btn btn-success w-100" onclick="proceedToPayment()">
+                            <i class="fas fa-credit-card me-2"></i>결제하기
+                        </button>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
 </div>
-
-<div class="row mt-4">
-    <div class="col text-center">
-        <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
-            <i class="fas fa-arrow-left"></i> 쇼핑 계속하기
-        </a>
-    </div>
-</div>
-
-{% else %}
-<div class="row">
-    <div class="col text-center">
-        <div class="card">
-            <div class="card-body py-5">
-                <i class="fas fa-shopping-cart fa-4x text-muted mb-4"></i>
-                <h4 class="text-muted">장바구니가 비어있습니다</h4>
-                <p class="text-muted">상품을 선택하여 장바구니에 추가해보세요!</p>
-                <a href="{{ url_for('index') }}" class="btn btn-primary">
-                    <i class="fas fa-store"></i> 쇼핑하러 가기
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
 {% endblock %}
 
 {% block scripts %}

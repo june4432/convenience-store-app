@@ -1,8 +1,33 @@
 {% extends "base.html" %}
 
-{% block title %}편의점 POS 시스템{% endblock %}
+{% block title %}대환장편의점 - 쇼핑{% endblock %}
 
 {% block content %}
+<div class="pos-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-0">
+                    <i class="fas fa-store me-2"></i>대환장편의점
+                </h1>
+                <p class="mb-0 mt-2">슈냥이 사장님이 운영하는 최고의 편의점입니다! 🐱</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="d-flex justify-content-end align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-clock me-1"></i>
+                        <span id="current-time"></span>
+                    </div>
+                    <div>
+                        <i class="fas fa-calendar me-1"></i>
+                        <span id="current-date"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container-fluid h-100">
     <div class="row h-100">
         <!-- 왼쪽: 상품 목록 -->

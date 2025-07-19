@@ -1,8 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}관리자 - 편의점 쇼핑몰{% endblock %}
+{% block title %}대환장편의점 - 관리자{% endblock %}
 
 {% block content %}
+<div class="admin-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-0">
+                    <i class="fas fa-cog me-2"></i>관리자 페이지
+                </h1>
+                <p class="mb-0 mt-2">대환장편의점 - 슈냥이 사장님 전용 관리 도구 🐱</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{{ url_for('index') }}" class="btn btn-light">
+                    <i class="fas fa-store me-1"></i>매장으로 돌아가기
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="fas fa-cog"></i> 관리자 페이지</h2>
