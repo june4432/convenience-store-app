@@ -204,10 +204,10 @@
                             <div class="mb-3">
                                 <label for="edit-category" class="form-label">카테고리 *</label>
                                 <select class="form-select" id="edit-category" name="category" required>
-                                    <option value="음식">음식</option>
-                                    <option value="음료">음료</option>
-                                    <option value="간식">간식</option>
-                                    <option value="생활용품">생활용품</option>
+                                    <option value="">카테고리 선택</option>
+                                    {% for category in categories %}
+                                    <option value="{{ category.name }}">{{ category.name }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
                             <div class="mb-3">
