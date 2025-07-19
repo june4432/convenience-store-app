@@ -18,6 +18,9 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///convenience_store.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# 파일 업로드 크기 제한 (50MB)
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
+
 # 토스페이먼츠 설정 (환경변수에서 가져오기)
 app.config['TOSS_CLIENT_KEY'] = os.getenv('TOSS_CLIENT_KEY')
 app.config['TOSS_SECRET_KEY'] = os.getenv('TOSS_SECRET_KEY')
@@ -26,13 +29,18 @@ app.config['TOSS_API_URL'] = 'https://api.tosspayments.com'
 
 # 이미지 업로드 설정
 UPLOAD_FOLDER = 'static/uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}  # webp 추가
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # 업로드 폴더 생성
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db = SQLAlchemy(app)
+
+# 파일 크기 제한 에러 핸들러
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({'error': '파일이 너무 큽니다. 50MB 이하의 파일만 업로드 가능합니다.'}), 413
 
 # 데이터베이스 모델
 class Category(db.Model):
