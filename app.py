@@ -156,30 +156,59 @@ def load_cart():
 @app.route('/cart')
 def cart():
     if 'cart' not in session or not session['cart']:
-        return render_template('cart.html', cart_items=[], total=0)
+        return render_template('cart.html', cart_items=[], total_amount=0, total_quantity=0)
     
     cart_items = []
-    total = 0
+    total_amount = 0
+    total_quantity = 0
     
     for product_id, quantity in session['cart'].items():
         product = Product.query.get(int(product_id))
         if product:
             item_total = product.price * quantity
             cart_items.append({
-                'product': product,
+                'id': product.id,
+                'name': product.name,
+                'price': product.price,
+                'image_url': product.image_url,
+                'category': product.category,
                 'quantity': quantity,
                 'total': item_total
             })
-            total += item_total
+            total_amount += item_total
+            total_quantity += quantity
     
-    return render_template('cart.html', cart_items=cart_items, total=total)
+    return render_template('cart.html', cart_items=cart_items, total_amount=total_amount, total_quantity=total_quantity)
 
-@app.route('/remove_from_cart/<int:product_id>')
-def remove_from_cart(product_id):
-    if 'cart' in session and str(product_id) in session['cart']:
-        del session['cart'][str(product_id)]
-        flash('상품이 장바구니에서 제거되었습니다.')
-    return redirect(url_for('cart'))
+@app.route('/update_cart_quantity', methods=['POST'])
+def update_cart_quantity():
+    data = request.get_json()
+    product_id = str(data.get('product_id'))
+    change = int(data.get('change'))
+
+    if 'cart' not in session:
+        session['cart'] = {}
+
+    if product_id in session['cart']:
+        session['cart'][product_id] += change
+        if session['cart'][product_id] <= 0:
+            del session['cart'][product_id]
+        session.modified = True # 세션 변경 사항 저장
+        return jsonify({'success': True})
+    
+    return jsonify({'success': False, 'message': '장바구니에 없는 상품입니다.'})
+
+@app.route('/remove_from_cart', methods=['POST'])
+def remove_from_cart_post():
+    data = request.get_json()
+    product_id = str(data.get('product_id'))
+
+    if 'cart' in session and product_id in session['cart']:
+        del session['cart'][product_id]
+        session.modified = True # 세션 변경 사항 저장
+        return jsonify({'success': True})
+    
+    return jsonify({'success': False, 'message': '장바구니에 없는 상품입니다.'})
 
 @app.route('/order_success/<int:order_id>')
 def order_success(order_id):

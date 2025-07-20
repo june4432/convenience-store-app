@@ -94,9 +94,58 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- 간단한 스크립트만 유지 -->
 <script>
-    // 결제 버튼 클릭 이벤트는 HTML onclick으로 처리
+    function updateQuantity(productId, change) {
+        fetch('/update_cart_quantity', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ product_id: productId, change: change }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload(); // 장바구니 페이지 새로고침
+            } else {
+                alert('수량 업데이트 실패: ' + data.message);
+            }
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            alert('수량 업데이트 중 오류가 발생했습니다.');
+        });
+    }
+
+    function removeFromCart(productId) {
+        if (!confirm('정말로 이 상품을 장바구니에서 삭제하시겠습니까?')) {
+            return;
+        }
+        fetch('/remove_from_cart', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ product_id: productId }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload(); // 장바구니 페이지 새로고침
+            } else {
+                alert('상품 삭제 실패: ' + data.message);
+            }
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            alert('상품 삭제 중 오류가 발생했습니다.');
+        });
+    }
+
+    function proceedToPayment() {
+        window.location.href = "{{ url_for('payment_widget') }}";
+    }
+
     console.log('장바구니 페이지 로드됨');
 </script>
 {% endblock %} 

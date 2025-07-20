@@ -210,7 +210,7 @@ function setupEventListeners() {
     });
     
     // 카테고리 필터
-    document.querySelectorAll('[data-category]').forEach(btn => {
+    document.querySelectorAll('.btn-group button[data-category]').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault(); // 기본 동작 방지
             const category = this.dataset.category;
@@ -284,13 +284,20 @@ function addToCart(productId, productName, productPrice) {
 
 // 장바구니에서 상품 제거
 function removeFromCart(productId) {
+    if (confirm('정말로 이 상품을 장바구니에서 삭제하시겠습니까?')) {
+        delete cart[productId];
+        saveCartToSession();
+        updateCartDisplay();
+    }
+}
+
+// 장바구니 아이템 수량 업데이트
+function updateCartItemQuantity(productId, change) {
     if (cart[productId]) {
-        if (cart[productId].quantity > 1) {
-            cart[productId].quantity -= 1;
-        } else {
+        cart[productId].quantity += change;
+        if (cart[productId].quantity <= 0) {
             delete cart[productId];
         }
-        
         saveCartToSession();
         updateCartDisplay();
     }
@@ -339,14 +346,19 @@ function updateCartDisplay() {
                     <div class="d-flex justify-content-between align-items-center">
                         <div class="flex-grow-1">
                             <h6 class="mb-1">${item.name || '상품명 없음'}</h6>
-                            <div class="d-flex justify-content-between">
-                                <small class="text-muted">${price.toLocaleString()}원 × ${quantity}</small>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">${price.toLocaleString()}원</small>
+                                <div class="input-group input-group-sm w-50">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="updateCartItemQuantity(${productId}, -1)">-</button>
+                                    <input type="text" class="form-control text-center" value="${quantity}" readonly>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="updateCartItemQuantity(${productId}, 1)">+</button>
+                                </div>
                                 <strong>${itemTotal.toLocaleString()}원</strong>
                             </div>
                         </div>
                         <div class="ms-2">
-                            <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${productId}')">
-                                <i class="fas fa-minus"></i>
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart(${productId})">
+                                <i class="fas fa-trash"></i>
                             </button>
                         </div>
                     </div>
