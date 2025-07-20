@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import os
 import requests
 import base64
@@ -49,6 +49,13 @@ os.makedirs(AUDIO_FOLDER, exist_ok=True)
 
 db = SQLAlchemy(app)
 
+# 한국시간 함수
+def korea_now():
+    """한국시간(KST)을 반환하는 함수"""
+    utc_now = datetime.now(timezone.utc)
+    kst = timezone(timedelta(hours=9))
+    return utc_now.astimezone(kst)
+
 # 관리자 인증 데코레이터
 from functools import wraps
 
@@ -72,7 +79,7 @@ class Category(db.Model):
     description = db.Column(db.Text)
     icon = db.Column(db.String(50), default='fas fa-box')  # FontAwesome 아이콘
     color = db.Column(db.String(20), default='text-secondary')  # Bootstrap 색상 클래스
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=korea_now)
     
     # 관계 설정
     products = db.relationship('Product', backref='category_obj', lazy=True)
@@ -86,15 +93,15 @@ class Product(db.Model):
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'))  # 새로운 외래키
     stock = db.Column(db.Integer, default=0)
     image_url = db.Column(db.String(200))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=korea_now)
+    updated_at = db.Column(db.DateTime, default=korea_now, onupdate=korea_now)
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     customer_name = db.Column(db.String(100), nullable=False)
     customer_phone = db.Column(db.String(20), nullable=False)
     total_amount = db.Column(db.Float, nullable=False)
-    order_date = db.Column(db.DateTime, default=datetime.utcnow)
+    order_date = db.Column(db.DateTime, default=korea_now)
     status = db.Column(db.String(20), default='pending')
     
     # 관계 설정
@@ -114,15 +121,15 @@ class Payment(db.Model):
     amount = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(20), default='pending')  # pending, completed, failed, cancelled
     payment_method = db.Column(db.String(50))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=korea_now)
+    updated_at = db.Column(db.DateTime, default=korea_now, onupdate=korea_now)
 
 class AudioSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     success_audio_url = db.Column(db.String(200))
     fail_audio_url = db.Column(db.String(200))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=korea_now)
+    updated_at = db.Column(db.DateTime, default=korea_now, onupdate=korea_now)
 
 # 라우트
 @app.route('/')
