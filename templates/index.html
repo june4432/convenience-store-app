@@ -53,7 +53,9 @@
                         <div class="row" id="products-container">
                             {% for product in products %}
                             <div class="col-md-4 col-lg-3 mb-3 product-item" data-category="{{ product.category }}">
-                                <div class="card h-100 product-card">
+                                <div class="card h-100 product-card" data-product-id="{{ product.id }}"
+                                                data-product-name="{{ product.name }}"
+                                                data-product-price="{{ product.price }}">
                                     <div class="card-body text-center p-3">
                                         <!-- 상품 이미지 -->
                                         <div class="product-image">
@@ -87,12 +89,6 @@
                                         <div class="stock-info mb-2">
                                             <small class="text-muted">재고: {{ product.stock }}개</small>
                                         </div>
-                                        <button class="btn btn-success btn-sm w-100 add-to-cart-btn" 
-                                                data-product-id="{{ product.id }}"
-                                                data-product-name="{{ product.name }}"
-                                                data-product-price="{{ product.price }}">
-                                            <i class="fas fa-plus"></i> 장바구니 추가
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -203,23 +199,12 @@ function setupEventListeners() {
     // 상품 카드 클릭 이벤트 (카테고리 필터링 방지)
     document.querySelectorAll('.product-card').forEach(card => {
         card.addEventListener('click', function(e) {
-            // 장바구니 추가 버튼 클릭이 아닌 경우에만 기본 동작 방지
-            if (!e.target.closest('.add-to-cart-btn')) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-    });
-    
-    // 상품 추가 버튼
-    document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault(); // 기본 동작 방지
-            e.stopPropagation(); // 이벤트 전파 방지
-            
-            const productId = this.dataset.productId;
-            const productName = this.dataset.productName;
-            const productPrice = parseInt(this.dataset.productPrice);
+            e.preventDefault(); // Prevent default link behavior if any
+            e.stopPropagation(); // Stop event propagation
+
+            const productId = card.dataset.productId;
+            const productName = card.dataset.productName;
+            const productPrice = parseInt(card.dataset.productPrice);
             addToCart(productId, productName, productPrice);
         });
     });
@@ -628,7 +613,7 @@ function simulateProgress(callback) {
         }
         
         progressBar.style.width = progress + '%';
-    }, 100);
+    }, 20);
 }
 </script>
 {% endblock %} 
