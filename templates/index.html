@@ -159,6 +159,9 @@
                 <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="closePaymentResult()">
                     확인
                 </button>
+                <button type="button" class="btn btn-outline-success" onclick="playModalSound()">
+                    <i class="fas fa-volume-up me-1"></i>소리 재생
+                </button>
             </div>
         </div>
     </div>
@@ -510,11 +513,18 @@ function showPaymentResult(success, message, orderId = null) {
                 <h4 class="text-success mb-3">결제가 성공적으로 완료되었습니다!</h4>
                 <p class="mb-2">주문번호: <strong>${orderId || 'N/A'}</strong></p>
                 <p class="text-muted">감사합니다.</p>
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-volume-up me-2"></i>
+                    <strong>소리 재생 안내:</strong><br>
+                    아래 버튼을 터치하면 소리가 재생됩니다! 🎵
+                </div>
             </div>
         `;
         
-        // 성공 소리 재생
-        playSuccessSound();
+        // iOS Safari용 지연된 소리 재생
+        setTimeout(() => {
+            playSuccessSound();
+        }, 500);
     } else {
         // 실패 모달
         header.className = 'modal-header bg-danger text-white';
@@ -525,14 +535,58 @@ function showPaymentResult(success, message, orderId = null) {
                 <h4 class="text-danger mb-3">결제에 실패했습니다</h4>
                 <p class="mb-2">${message}</p>
                 <p class="text-muted">다시 시도해주세요.</p>
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-volume-up me-2"></i>
+                    <strong>소리 재생 안내:</strong><br>
+                    아래 버튼을 터치하면 소리가 재생됩니다! 🎵
+                </div>
             </div>
         `;
         
-        // 실패 소리 재생
-        playFailSound();
+        // iOS Safari용 지연된 소리 재생
+        setTimeout(() => {
+            playFailSound();
+        }, 500);
     }
     
     modal.show();
+    
+    // iOS Safari에서 모달이 완전히 표시된 후 오디오 컨텍스트 초기화
+    setTimeout(() => {
+        initializeAudioContext();
+    }, 1000);
+}
+
+// iOS Safari용 오디오 컨텍스트 초기화
+function initializeAudioContext() {
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isIOS = /iphone|ipad|ipod/.test(userAgent);
+    const isSafari = /safari/.test(userAgent) && !/chrome/.test(userAgent);
+    
+    if (isIOS && isSafari) {
+        console.log('iOS Safari 오디오 컨텍스트 초기화 시도');
+        
+        // 모달 내부에 터치 이벤트 추가
+        const modalBody = document.getElementById('resultModalBody');
+        if (modalBody) {
+            modalBody.addEventListener('touchstart', function() {
+                console.log('모달 내 터치 감지, 오디오 컨텍스트 초기화');
+                audioContextInitialized = true;
+                
+                // 오디오 컨텍스트 생성 및 재생
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    const audioContext = new AudioContext();
+                    if (audioContext.state === 'suspended') {
+                        audioContext.resume();
+                    }
+                    console.log('오디오 컨텍스트 초기화 완료');
+                } catch (error) {
+                    console.log('오디오 컨텍스트 초기화 실패:', error);
+                }
+            }, { once: true });
+        }
+    }
 }
 
 // 성공 소리 재생
@@ -819,6 +873,23 @@ function setupIOSAudioSupport() {
         // 터치와 클릭 이벤트 감지
         document.addEventListener('touchstart', initAudioOnInteraction, { once: true });
         document.addEventListener('click', initAudioOnInteraction, { once: true });
+    }
+}
+
+// 모달에서 소리 재생 버튼 클릭 시
+function playModalSound() {
+    console.log('모달 소리 재생 버튼 클릭');
+    
+    // 현재 모달의 상태 확인
+    const header = document.getElementById('resultModalHeader');
+    const isSuccess = header.classList.contains('bg-success');
+    
+    if (isSuccess) {
+        console.log('성공 소리 재생');
+        playSuccessSound();
+    } else {
+        console.log('실패 소리 재생');
+        playFailSound();
     }
 }
 </script>
