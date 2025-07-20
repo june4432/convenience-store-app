@@ -12,6 +12,9 @@ import sqlite3
 import ssl
 import tempfile
 import subprocess
+import qrcode
+from io import BytesIO
+import base64
 
 # .env 파일 로드
 load_dotenv()
@@ -993,6 +996,43 @@ def get_audio_settings():
         'success_audio_url': settings.success_audio_url if settings else None,
         'fail_audio_url': settings.fail_audio_url if settings else None
     })
+
+@app.route('/admin/generate-qr', methods=['POST'])
+@admin_required
+def generate_qr_code():
+    """서버 사이드 QR코드 생성"""
+    try:
+        data = request.get_json()
+        qr_text = data.get('text', '')
+        
+        if not qr_text:
+            return jsonify({'error': 'QR코드 텍스트가 필요합니다.'}), 400
+        
+        # QR코드 생성
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(qr_text)
+        qr.make(fit=True)
+        
+        # 이미지 생성
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # 이미지를 base64로 인코딩
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        
+        return jsonify({
+            'success': True,
+            'qr_code': f'data:image/png;base64,{img_str}'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # Content Security Policy 헤더 설정
 @app.after_request

@@ -127,17 +127,23 @@
                                 <span class="text-muted">쿠폰 할인:</span>
                                 <span id="coupon-discount">0원</span>
                             </div>
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="openQRScanner()">
-                                <i class="fas fa-qrcode me-1"></i>QR코드 쿠폰 스캔
-                            </button>
+                            <div id="coupon-buttons">
+                                <button class="btn btn-outline-primary btn-sm w-100" onclick="openQRScanner()">
+                                    <i class="fas fa-qrcode me-1"></i>QR코드 쿠폰 스캔
+                                </button>
+                            </div>
                         </div>
                         
                         <div class="row mb-2">
                             <div class="col-6">총 수량:</div>
                             <div class="col-6 text-end" id="total-quantity">0개</div>
                         </div>
+                        <div class="row mb-2">
+                            <div class="col-6">할인 전 총액:</div>
+                            <div class="col-6 text-end" id="subtotal-amount">0원</div>
+                        </div>
                         <div class="row mb-3">
-                            <div class="col-6"><strong>총 금액:</strong></div>
+                            <div class="col-6"><strong>최종 금액:</strong></div>
                             <div class="col-6 text-end"><strong id="total-amount">0원</strong></div>
                         </div>
                         <div class="d-grid gap-2">
@@ -363,6 +369,13 @@ function updateCartItemQuantity(productId, change) {
 // 장바구니 비우기
 function clearCart() {
     cart = {};
+    // 쿠폰도 함께 취소
+    if (currentCoupon) {
+        currentCoupon = null;
+        showToast('장바구니와 쿠폰이 모두 비워졌습니다.', 'info');
+    } else {
+        showToast('장바구니가 비워졌습니다.', 'info');
+    }
     saveCartToSession();
     updateCartDisplay();
 }
@@ -428,11 +441,15 @@ function updateCartDisplay() {
     
     // 쿠폰 할인 계산
     let discountAmount = 0;
+    let discountInfo = '';
+    
     if (currentCoupon) {
         if (currentCoupon.type === 'percent') {
             discountAmount = Math.floor(totalAmount * (currentCoupon.discount / 100));
+            discountInfo = `${currentCoupon.discount}% 할인`;
         } else {
             discountAmount = Math.min(currentCoupon.discount, totalAmount);
+            discountInfo = `${currentCoupon.discount.toLocaleString()}원 할인`;
         }
     }
     
@@ -440,15 +457,45 @@ function updateCartDisplay() {
     
     // 총계 업데이트
     document.getElementById('total-quantity').textContent = `${totalQuantity}개`;
+    document.getElementById('subtotal-amount').textContent = `${totalAmount.toLocaleString()}원`;
     document.getElementById('total-amount').textContent = `${finalAmount.toLocaleString()}원`;
     document.getElementById('coupon-discount').textContent = `${discountAmount.toLocaleString()}원`;
     
     // 쿠폰이 적용된 경우 할인 금액 표시 스타일 변경
     const couponDiscountElement = document.getElementById('coupon-discount');
+    const couponButtonsElement = document.getElementById('coupon-buttons');
+    
     if (discountAmount > 0) {
         couponDiscountElement.className = 'text-success fw-bold';
+        couponDiscountElement.textContent = `-${discountAmount.toLocaleString()}원`;
+        
+        // 할인 정보 표시
+        const discountInfoElement = document.createElement('small');
+        discountInfoElement.className = 'text-success d-block';
+        discountInfoElement.textContent = `쿠폰: ${currentCoupon.code} (${discountInfo})`;
+        couponDiscountElement.appendChild(discountInfoElement);
+        
+        // 쿠폰 버튼 업데이트 (취소 버튼 추가)
+        couponButtonsElement.innerHTML = `
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm flex-grow-1" onclick="openQRScanner()">
+                    <i class="fas fa-qrcode me-1"></i>새 쿠폰 스캔
+                </button>
+                <button class="btn btn-outline-danger btn-sm" onclick="cancelCoupon()" title="쿠폰 취소">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
     } else {
         couponDiscountElement.className = '';
+        couponDiscountElement.textContent = '0원';
+        
+        // 쿠폰 버튼 원래대로 복원
+        couponButtonsElement.innerHTML = `
+            <button class="btn btn-outline-primary btn-sm w-100" onclick="openQRScanner()">
+                <i class="fas fa-qrcode me-1"></i>QR코드 쿠폰 스캔
+            </button>
+        `;
     }
 }
 
@@ -1242,6 +1289,15 @@ function stopQRScanner() {
     }
     const video = document.getElementById('qrVideo');
     video.srcObject = null;
+}
+
+// 쿠폰 취소
+function cancelCoupon() {
+    if (confirm('적용된 쿠폰을 취소하시겠습니까?')) {
+        currentCoupon = null;
+        updateCartDisplay();
+        showToast('쿠폰이 취소되었습니다.', 'info');
+    }
 }
 
 // QR코드 처리

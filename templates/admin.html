@@ -458,7 +458,14 @@
 {% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <!-- QR코드 라이브러리 (여러 버전 시도) -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        // QRCode 라이브러리 로드 실패 시 대체 라이브러리
+        if (typeof QRCode === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>');
+        }
+    </script>
     <script>
         // QRCode 라이브러리 로드 확인
         window.addEventListener('load', function() {
@@ -733,7 +740,7 @@ function loadAudioSettings() {
         });
 }
 
-// QR코드 생성
+// QR코드 생성 (개선된 버전)
 function generateQRCode() {
     const code = document.getElementById('couponCode').value.trim();
     const discountType = document.getElementById('discountType').value;
@@ -761,9 +768,14 @@ function generateQRCode() {
     const qrContainer = document.getElementById('qrCodeContainer');
     qrContainer.innerHTML = '';
     
-    // QRCode 라이브러리 확인
-    if (typeof QRCode !== 'undefined') {
-        try {
+    console.log('QR코드 생성 시작:', jsonString);
+    console.log('QRCode 라이브러리 상태:', typeof QRCode);
+    
+    // 여러 방법으로 QR코드 생성 시도
+    try {
+        // 방법 1: QRCode.toCanvas
+        if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
+            console.log('QRCode.toCanvas 사용');
             QRCode.toCanvas(qrContainer, jsonString, {
                 width: 200,
                 margin: 2,
@@ -773,29 +785,89 @@ function generateQRCode() {
                 }
             }, function (error) {
                 if (error) {
-                    console.error('QR코드 생성 실패:', error);
-                    useSimpleQRCode(jsonString, qrContainer);
+                    console.error('QRCode.toCanvas 실패:', error);
+                    tryMethod2(jsonString, qrContainer);
                 } else {
-                    // 쿠폰 정보 표시
-                    document.getElementById('couponData').textContent = jsonString;
-                    document.getElementById('couponInfo').style.display = 'block';
-                    
-                    // 다운로드 버튼 추가
-                    const downloadBtn = document.createElement('button');
-                    downloadBtn.className = 'btn btn-success mt-2';
-                    downloadBtn.innerHTML = '<i class="fas fa-download me-1"></i>QR코드 다운로드';
-                    downloadBtn.onclick = () => downloadQRCode(jsonString, code);
-                    qrContainer.appendChild(downloadBtn);
+                    console.log('QRCode.toCanvas 성공');
+                    showQRSuccess(jsonString, code, qrContainer);
                 }
             });
-        } catch (error) {
-            console.error('QR코드 생성 중 오류:', error);
+        } else {
+            console.log('QRCode.toCanvas 없음, 방법 2 시도');
+            tryMethod2(jsonString, qrContainer);
+        }
+    } catch (error) {
+        console.error('QR코드 생성 중 오류:', error);
+        tryMethod2(jsonString, qrContainer);
+    }
+}
+
+// 방법 2: QRCode 생성자 사용
+function tryMethod2(jsonString, qrContainer) {
+    try {
+        if (typeof QRCode !== 'undefined') {
+            console.log('QRCode 생성자 사용');
+            const qr = new QRCode(qrContainer, {
+                text: jsonString,
+                width: 200,
+                height: 200,
+                colorDark: '#000000',
+                colorLight: '#FFFFFF',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            showQRSuccess(jsonString, document.getElementById('couponCode').value.trim(), qrContainer);
+        } else {
+            console.log('QRCode 라이브러리 없음, 서버 사이드 생성 시도');
+            tryServerSideQR(jsonString, qrContainer);
+        }
+    } catch (error) {
+        console.error('방법 2 실패:', error);
+        tryServerSideQR(jsonString, qrContainer);
+    }
+}
+
+// 방법 3: 서버 사이드 QR코드 생성
+function tryServerSideQR(jsonString, qrContainer) {
+    console.log('서버 사이드 QR코드 생성 시도');
+    
+    fetch('/admin/generate-qr', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: jsonString })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('서버 사이드 QR코드 생성 성공');
+            qrContainer.innerHTML = `<img src="${data.qr_code}" alt="QR Code" style="max-width: 200px;">`;
+            showQRSuccess(jsonString, document.getElementById('couponCode').value.trim(), qrContainer);
+        } else {
+            console.error('서버 사이드 QR코드 생성 실패:', data.error);
             useSimpleQRCode(jsonString, qrContainer);
         }
-    } else {
-        console.log('QRCode 라이브러리 없음, 대체 방법 사용');
+    })
+    .catch(error => {
+        console.error('서버 사이드 QR코드 생성 오류:', error);
         useSimpleQRCode(jsonString, qrContainer);
-    }
+    });
+}
+
+// QR코드 생성 성공 시 처리
+function showQRSuccess(jsonString, code, qrContainer) {
+    // 쿠폰 정보 표시
+    document.getElementById('couponData').textContent = jsonString;
+    document.getElementById('couponInfo').style.display = 'block';
+    
+    // 다운로드 버튼 추가
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'btn btn-success mt-2';
+    downloadBtn.innerHTML = '<i class="fas fa-download me-1"></i>QR코드 다운로드';
+    downloadBtn.onclick = () => downloadQRCode(jsonString, code);
+    qrContainer.appendChild(downloadBtn);
+    
+    console.log('QR코드 생성 완료');
 }
 
 // 간단한 QR코드 대체 방법
