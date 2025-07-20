@@ -194,6 +194,38 @@
             </div>
         </div>
     </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tags me-2"></i>카테고리 관리
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">상품 카테고리를 관리합니다.</p>
+                <a href="{{ url_for('admin_categories') }}" class="btn btn-primary">
+                    <i class="fas fa-cog me-1"></i>카테고리 관리
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-volume-up me-2"></i>결제 소리 설정
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">결제 완료/실패 시 재생할 소리를 설정합니다.</p>
+                <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#audioSettingsModal">
+                    <i class="fas fa-music me-1"></i>소리 설정
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- 상품 수정 모달 -->
@@ -263,6 +295,86 @@
         <div class="loading-text" id="loadingText">처리 중...</div>
         <div class="progress-container">
             <div class="progress-bar" id="progressBar"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 오디오 설정 모달 -->
+<div class="modal fade" id="audioSettingsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-volume-up me-2"></i>결제 소리 설정
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-check-circle me-2"></i>성공 소리
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="successAudioForm">
+                                    <div class="mb-3">
+                                        <label for="successAudio" class="form-label">성공 소리 파일 (MP3, WAV, OGG)</label>
+                                        <input type="file" class="form-control" id="successAudio" name="success_audio" accept=".mp3,.wav,.ogg,.m4a">
+                                    </div>
+                                    <div id="successAudioPreview" class="mb-3" style="display: none;">
+                                        <audio controls class="w-100">
+                                            <source id="successAudioSource" src="" type="audio/mpeg">
+                                        </audio>
+                                    </div>
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-upload me-1"></i>업로드
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-danger text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-times-circle me-2"></i>실패 소리
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="failAudioForm">
+                                    <div class="mb-3">
+                                        <label for="failAudio" class="form-label">실패 소리 파일 (MP3, WAV, OGG)</label>
+                                        <input type="file" class="form-control" id="failAudio" name="fail_audio" accept=".mp3,.wav,.ogg,.m4a">
+                                    </div>
+                                    <div id="failAudioPreview" class="mb-3" style="display: none;">
+                                        <audio controls class="w-100">
+                                            <source id="failAudioSource" src="" type="audio/mpeg">
+                                        </audio>
+                                    </div>
+                                    <button type="submit" class="btn btn-danger">
+                                        <i class="fas fa-upload me-1"></i>업로드
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>안내사항:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>지원 형식: MP3, WAV, OGG, M4A</li>
+                        <li>파일 크기: 최대 50MB</li>
+                        <li>짧은 소리(1-3초)를 권장합니다</li>
+                        <li>업로드 후 즉시 적용됩니다</li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -384,6 +496,138 @@ function updateOrderStatus(orderId, status) {
             alert('주문 상태 업데이트에 실패했습니다: ' + data.error);
         }
     });
+}
+
+// 오디오 설정 모달 관련 JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // 성공 오디오 파일 선택 시 미리듣기
+    document.getElementById('successAudio').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const url = URL.createObjectURL(file);
+            const audio = document.querySelector('#successAudioPreview audio');
+            const source = document.getElementById('successAudioSource');
+            source.src = url;
+            audio.load();
+            document.getElementById('successAudioPreview').style.display = 'block';
+        }
+    });
+
+    // 실패 오디오 파일 선택 시 미리듣기
+    document.getElementById('failAudio').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const url = URL.createObjectURL(file);
+            const audio = document.querySelector('#failAudioPreview audio');
+            const source = document.getElementById('failAudioSource');
+            source.src = url;
+            audio.load();
+            document.getElementById('failAudioPreview').style.display = 'block';
+        }
+    });
+
+    // 성공 오디오 업로드
+    document.getElementById('successAudioForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData();
+        const fileInput = document.getElementById('successAudio');
+        
+        if (fileInput.files[0]) {
+            formData.append('success_audio', fileInput.files[0]);
+            
+            fetch('/admin/audio/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('성공 소리가 업로드되었습니다!');
+                    // 미리듣기 업데이트
+                    const audio = document.querySelector('#successAudioPreview audio');
+                    const source = document.getElementById('successAudioSource');
+                    source.src = data.audio_url;
+                    audio.load();
+                    document.getElementById('successAudioPreview').style.display = 'block';
+                } else {
+                    alert('업로드 실패: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('업로드 중 오류가 발생했습니다.');
+            });
+        } else {
+            alert('파일을 선택해주세요.');
+        }
+    });
+
+    // 실패 오디오 업로드
+    document.getElementById('failAudioForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData();
+        const fileInput = document.getElementById('failAudio');
+        
+        if (fileInput.files[0]) {
+            formData.append('fail_audio', fileInput.files[0]);
+            
+            fetch('/admin/audio/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('실패 소리가 업로드되었습니다!');
+                    // 미리듣기 업데이트
+                    const audio = document.querySelector('#failAudioPreview audio');
+                    const source = document.getElementById('failAudioSource');
+                    source.src = data.audio_url;
+                    audio.load();
+                    document.getElementById('failAudioPreview').style.display = 'block';
+                } else {
+                    alert('업로드 실패: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('업로드 중 오류가 발생했습니다.');
+            });
+        } else {
+            alert('파일을 선택해주세요.');
+        }
+    });
+
+    // 모달 열릴 때 기존 설정 로드
+    document.getElementById('audioSettingsModal').addEventListener('show.bs.modal', function() {
+        loadAudioSettings();
+    });
+});
+
+// 기존 오디오 설정 로드
+function loadAudioSettings() {
+    fetch('/admin/audio/settings')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success_audio_url) {
+                const audio = document.querySelector('#successAudioPreview audio');
+                const source = document.getElementById('successAudioSource');
+                source.src = data.success_audio_url;
+                audio.load();
+                document.getElementById('successAudioPreview').style.display = 'block';
+            }
+            
+            if (data.fail_audio_url) {
+                const audio = document.querySelector('#failAudioPreview audio');
+                const source = document.getElementById('failAudioSource');
+                source.src = data.fail_audio_url;
+                audio.load();
+                document.getElementById('failAudioPreview').style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('오디오 설정 로드 실패:', error);
+        });
 }
 </script>
 {% endblock %} 

@@ -32,8 +32,14 @@ UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}  # webp 추가
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# 오디오 파일 설정
+AUDIO_FOLDER = 'static/audio'
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a'}
+app.config['AUDIO_FOLDER'] = AUDIO_FOLDER
+
 # 업로드 폴더 생성
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(AUDIO_FOLDER, exist_ok=True)
 
 db = SQLAlchemy(app)
 
@@ -91,6 +97,13 @@ class Payment(db.Model):
     amount = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(20), default='pending')  # pending, completed, failed, cancelled
     payment_method = db.Column(db.String(50))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class AudioSettings(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    success_audio_url = db.Column(db.String(200))
+    fail_audio_url = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -539,20 +552,31 @@ def create_sample_data():
         print("샘플 데이터 생성 완료!")
 
 def allowed_file(filename):
-    """허용된 파일 확장자인지 확인"""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def allowed_audio_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_AUDIO_EXTENSIONS
+
 def save_image(file):
-    """이미지 파일 저장"""
     if file and allowed_file(file.filename):
-        # 안전한 파일명 생성
         filename = secure_filename(file.filename)
         # 고유한 파일명 생성
         unique_filename = f"{uuid.uuid4().hex}_{filename}"
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
         file.save(filepath)
-        return f"/static/uploads/{unique_filename}"
+        return f'/static/uploads/{unique_filename}'
+    return None
+
+def save_audio(file):
+    if file and allowed_audio_file(file.filename):
+        filename = secure_filename(file.filename)
+        # 고유한 파일명 생성
+        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+        filepath = os.path.join(app.config['AUDIO_FOLDER'], unique_filename)
+        file.save(filepath)
+        return f'/static/audio/{unique_filename}'
     return None
 
 @app.route('/admin/product/<int:product_id>', methods=['GET'])
@@ -751,6 +775,49 @@ def delete_category(category_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/audio/upload', methods=['POST'])
+def upload_audio():
+    """오디오 파일 업로드"""
+    try:
+        if 'success_audio' in request.files:
+            file = request.files['success_audio']
+            audio_url = save_audio(file)
+            if audio_url:
+                # 기존 설정이 있으면 업데이트, 없으면 새로 생성
+                settings = AudioSettings.query.first()
+                if not settings:
+                    settings = AudioSettings()
+                    db.session.add(settings)
+                settings.success_audio_url = audio_url
+                db.session.commit()
+                return jsonify({'success': True, 'audio_url': audio_url})
+        
+        if 'fail_audio' in request.files:
+            file = request.files['fail_audio']
+            audio_url = save_audio(file)
+            if audio_url:
+                settings = AudioSettings.query.first()
+                if not settings:
+                    settings = AudioSettings()
+                    db.session.add(settings)
+                settings.fail_audio_url = audio_url
+                db.session.commit()
+                return jsonify({'success': True, 'audio_url': audio_url})
+        
+        return jsonify({'success': False, 'error': '파일이 없거나 지원되지 않는 형식입니다.'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/audio/settings')
+def get_audio_settings():
+    """오디오 설정 조회"""
+    settings = AudioSettings.query.first()
+    return jsonify({
+        'success_audio_url': settings.success_audio_url if settings else None,
+        'fail_audio_url': settings.fail_audio_url if settings else None
+    })
 
 if __name__ == '__main__':
     create_sample_data()
