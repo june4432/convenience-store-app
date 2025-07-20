@@ -1122,7 +1122,7 @@ def generate_lottery_qr():
 # Content Security Policy 헤더 설정
 @app.after_request
 def add_security_headers(response):
-    # CSP 헤더 설정 (토스페이먼츠 로그 서버 포함)
+    # CSP 헤더 설정 (토스페이먼츠 모든 도메인 포함)
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: "
@@ -1132,8 +1132,10 @@ def add_security_headers(response):
         "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
         "img-src 'self' data: blob: https:; "
-        "connect-src 'self' https://api.tosspayments.com https://log.tosspayments.com; "
-        "frame-src 'self' https://js.tosspayments.com;"
+        "connect-src 'self' https://api.tosspayments.com https://log.tosspayments.com "
+        "https://event.tosspayments.com https://apigw-sandbox.tosspayments.com "
+        "https://*.tosspayments.com; "
+        "frame-src 'self' https://js.tosspayments.com https://*.tosspayments.com;"
     )
     return response
 
