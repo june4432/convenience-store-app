@@ -650,7 +650,8 @@ function updateCartDisplay() {
         // 할인 정보 표시
         const discountInfoElement = document.createElement('small');
         discountInfoElement.className = 'text-success d-block';
-        discountInfoElement.textContent = `${currentCoupon.description} (${discountInfo})`;
+        const couponDescription = currentCoupon.description || `${currentCoupon.discount}${currentCoupon.type === 'fixed' ? '원' : '%'} 할인 쿠폰`;
+        discountInfoElement.textContent = `${couponDescription} (${discountInfo})`;
         couponDiscountElement.appendChild(discountInfoElement);
         
         // 쿠폰 버튼 업데이트 (취소 버튼 추가)
@@ -1449,7 +1450,8 @@ function applyManualCoupon() {
     currentCoupon = {
         code: couponData.code,
         discount: couponData.discount,
-        type: couponData.discountType
+        type: couponData.discountType,
+        description: couponData.description
     };
     
     updateCartDisplay();
@@ -1488,7 +1490,8 @@ function processQRCode(qrData) {
             currentCoupon = {
                 code: couponData.code || 'QR쿠폰',
                 discount: couponData.discount,
-                type: couponData.discountType || 'percent' // percent 또는 fixed
+                type: couponData.discountType || 'percent', // percent 또는 fixed
+                description: couponData.description || `${couponData.discount}${couponData.discountType === 'fixed' ? '원' : '%'} 할인 쿠폰`
             };
             
             updateCartDisplay();
