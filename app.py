@@ -844,30 +844,4 @@ def add_security_headers(response):
     return response
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    
-    # 개발용 SSL 인증서 생성
-    def create_self_signed_cert():
-        cert_file = 'cert.pem'
-        key_file = 'key.pem'
-        
-        if not (os.path.exists(cert_file) and os.path.exists(key_file)):
-            print("개발용 SSL 인증서 생성 중...")
-            subprocess.run([
-                'openssl', 'req', '-x509', '-newkey', 'rsa:4096', '-keyout', key_file,
-                '-out', cert_file, '-days', '365', '-nodes', '-subj',
-                '/C=KR/ST=Seoul/L=Seoul/O=Dev/CN=localhost'
-            ], check=True)
-            print("SSL 인증서 생성 완료!")
-        
-        return cert_file, key_file
-    
-    try:
-        cert_file, key_file = create_self_signed_cert()
-        print("HTTPS 서버 시작: https://localhost:8080")
-        app.run(host='0.0.0.0', port=8080, debug=True, ssl_context=(cert_file, key_file))
-    except Exception as e:
-        print(f"HTTPS 시작 실패: {e}")
-        print("HTTP로 시작합니다: http://localhost:8080")
-        app.run(host='0.0.0.0', port=8080, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
