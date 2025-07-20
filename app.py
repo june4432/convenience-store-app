@@ -9,6 +9,9 @@ import uuid
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import sqlite3
+import ssl
+import tempfile
+import subprocess
 
 # .env 파일 로드
 load_dotenv()
@@ -819,16 +822,52 @@ def get_audio_settings():
         'fail_audio_url': settings.fail_audio_url if settings else None
     })
 
+# Content Security Policy 헤더 설정
+@app.after_request
+def add_security_headers(response):
+    # CSP 헤더 완전 제거 (임시 해결책)
+    response.headers.pop('Content-Security-Policy', None)
+    
+    # 또는 아래 주석을 해제하여 CSP 허용
+    # response.headers['Content-Security-Policy'] = (
+    #     "default-src 'self'; "
+    #     "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: "
+    #     "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com "
+    #     "https://js.tosspayments.com https://kit.fontawesome.com; "
+    #     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com "
+    #     "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+    #     "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+    #     "img-src 'self' data: blob: https:; "
+    #     "connect-src 'self' https://api.tosspayments.com; "
+    #     "frame-src 'self' https://js.tosspayments.com;"
+    # )
+    return response
+
 if __name__ == '__main__':
-    create_sample_data()
-    # SSL 관련 로그를 줄이기 위한 설정
-    import logging
-    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+    with app.app_context():
+        db.create_all()
     
-    print("=" * 50)
-    print("🐱 대환장편의점 서버가 시작되었습니다!")
-    print("📍 접속 주소: http://localhost:5000")
-    print("🌐 네트워크 접속: http://[서버IP]:5000")
-    print("=" * 50)
+    # 개발용 SSL 인증서 생성
+    def create_self_signed_cert():
+        cert_file = 'cert.pem'
+        key_file = 'key.pem'
+        
+        if not (os.path.exists(cert_file) and os.path.exists(key_file)):
+            print("개발용 SSL 인증서 생성 중...")
+            subprocess.run([
+                'openssl', 'req', '-x509', '-newkey', 'rsa:4096', '-keyout', key_file,
+                '-out', cert_file, '-days', '365', '-nodes', '-subj',
+                '/C=KR/ST=Seoul/L=Seoul/O=Dev/CN=localhost'
+            ], check=True)
+            print("SSL 인증서 생성 완료!")
+        
+        return cert_file, key_file
     
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    try:
+        cert_file, key_file = create_self_signed_cert()
+        print("HTTPS 서버 시작: https://localhost:8080")
+        app.run(host='0.0.0.0', port=8080, debug=True, ssl_context=(cert_file, key_file))
+    except Exception as e:
+        print(f"HTTPS 시작 실패: {e}")
+        print("HTTP로 시작합니다: http://localhost:8080")
+        app.run(host='0.0.0.0', port=8080, debug=True)
