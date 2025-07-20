@@ -4,81 +4,39 @@
 
 {% block extra_css %}
 <style>
-    /* 이벤트 배너 스타일 */
-    .event-banner {
-        background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
-        color: white;
-        padding: 15px 0;
-        position: relative;
-        overflow: hidden;
-        display: none;
-        animation: slideDown 0.5s ease;
-    }
-    
-    @keyframes slideDown {
-        from { transform: translateY(-100%); }
-        to { transform: translateY(0); }
-    }
-    
-    .event-banner::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-        animation: shine 3s infinite;
-    }
-    
-    @keyframes shine {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(100%); }
-    }
-    
-    .event-content h4 {
-        margin: 0;
-        font-weight: bold;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        color: #ffffff;
-    }
-    
-    .event-content p {
-        margin: 0;
-        opacity: 0.95;
-        color: #ffffff;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-    }
-    
-    .event-qr-container {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-    }
-    
-    .event-qr-code {
-        width: 60px;
-        height: 60px;
+    /* 이벤트 모달 스타일 */
+    .event-qr-code-large {
+        width: 200px;
+        height: 200px;
         background: white;
-        border-radius: 10px;
+        border-radius: 15px;
         display: flex;
         align-items: center;
         justify-content: center;
         color: #333;
         cursor: pointer;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        border: 3px solid #ffc107;
+        margin: 0 auto;
     }
     
-    .event-qr-code:hover {
-        transform: scale(1.1);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    .event-qr-code-large:hover {
+        transform: scale(1.05);
+        box-shadow: 0 12px 24px rgba(0,0,0,0.3);
     }
     
-    .event-qr-code img {
+    .event-qr-code-large img {
         width: 100%;
         height: 100%;
-        border-radius: 8px;
+        border-radius: 12px;
+    }
+    
+    .event-qr-section {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border-radius: 15px;
+        padding: 30px;
+        border: 2px solid #ffc107;
     }
     
     /* 포스 헤더 스타일 */
@@ -147,28 +105,50 @@
 {% endblock %}
 
 {% block content %}
-<!-- 이벤트 배너 -->
-<div class="event-banner" id="eventBanner">
-    <div class="container-fluid">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <div class="event-content">
-                    <h4 class="mb-1">
-                        <i class="fas fa-gift text-warning me-2"></i>
-                        🎰 할인쿠폰 뽑기 이벤트! 🎰
+<!-- 이벤트 모달 -->
+<div class="modal fade" id="eventModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="fas fa-gift me-2"></i>
+                    🎰 할인쿠폰 뽑기 이벤트! 🎰
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeEventModal()"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-4">
+                    <h4 class="text-warning mb-3">
+                        <i class="fas fa-star me-2"></i>
+                        특별 할인쿠폰 이벤트!
                     </h4>
-                    <p class="mb-0">1000원~10000원 할인쿠폰을 뽑아보세요! 아래 QR코드를 스캔하세요!</p>
+                    <p class="lead mb-4">
+                        1000원~10000원 할인쿠폰을 뽑아보세요!<br>
+                        아래 QR코드를 스캔하면 <strong>뽑기 페이지</strong>로 이동합니다!
+                    </p>
+                </div>
+                
+                <div class="event-qr-section mb-4">
+                    <h6 class="text-muted mb-3">뽑기 페이지로 이동하는 QR코드</h6>
+                    <div class="event-qr-container d-inline-block">
+                        <div class="event-qr-code-large" id="eventQRCode">
+                            <i class="fas fa-qrcode fa-4x text-muted"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>이벤트 안내:</strong><br>
+                    • QR코드를 스캔하면 뽑기 페이지로 이동합니다<br>
+                    • 뽑기 페이지에서 "뽑기 시작!" 버튼을 클릭하세요<br>
+                    • 뽑은 쿠폰의 QR코드를 포스기에서 스캔하여 사용하세요
                 </div>
             </div>
-            <div class="col-md-4 text-end">
-                <div class="event-qr-container">
-                    <div class="event-qr-code" id="eventQRCode">
-                        <i class="fas fa-qrcode fa-2x"></i>
-                    </div>
-                    <button class="btn btn-sm btn-outline-light ms-2" onclick="toggleEventBanner()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal" onclick="closeEventModal()">
+                    <i class="fas fa-times me-2"></i>닫기
+                </button>
             </div>
         </div>
     </div>
@@ -189,11 +169,6 @@
                     <div class="me-3">
                         <i class="fas fa-calendar me-1"></i>
                         <span id="current-date"></span>
-                    </div>
-                    <div>
-                        <button class="btn btn-sm btn-outline-light" onclick="toggleEventBanner()" id="eventToggleBtn">
-                            <i class="fas fa-gift"></i> 이벤트
-                        </button>
                     </div>
                 </div>
             </div>
@@ -279,9 +254,14 @@
         <div class="col-md-4 h-100">
             <div class="card h-100">
                 <div class="card-header bg-success text-white">
-                    <h4 class="mb-0">
-                        <i class="fas fa-shopping-cart"></i> 장바구니
-                    </h4>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-shopping-cart"></i> 장바구니
+                        </h4>
+                        <button class="btn btn-sm btn-outline-warning" onclick="openEventModal()" id="eventToggleBtn" style="border-color: #ffc107; color: #ffc107;">
+                            <i class="fas fa-gift"></i> 이벤트
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body p-0 d-flex flex-column">
                     <!-- 장바구니 아이템 목록 -->
@@ -1509,24 +1489,20 @@ function processQRCode(qrData) {
     }
 }
 
-// 이벤트 배너 토글
-function toggleEventBanner() {
-    const banner = document.getElementById('eventBanner');
-    const toggleBtn = document.getElementById('eventToggleBtn');
+// 이벤트 모달 열기
+function openEventModal() {
+    const modal = new bootstrap.Modal(document.getElementById('eventModal'));
+    modal.show();
     
-    if (banner.style.display === 'none' || banner.style.display === '') {
-        banner.style.display = 'block';
-        toggleBtn.innerHTML = '<i class="fas fa-times"></i> 닫기';
-        toggleBtn.classList.remove('btn-outline-light');
-        toggleBtn.classList.add('btn-outline-warning');
-        
-        // 이벤트 QR코드 생성
-        generateEventQRCode();
-    } else {
-        banner.style.display = 'none';
-        toggleBtn.innerHTML = '<i class="fas fa-gift"></i> 이벤트';
-        toggleBtn.classList.remove('btn-outline-warning');
-        toggleBtn.classList.add('btn-outline-light');
+    // 모달이 열리면 QR코드 생성
+    generateEventQRCode();
+}
+
+// 이벤트 모달 닫기
+function closeEventModal() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
+    if (modal) {
+        modal.hide();
     }
 }
 
@@ -1535,22 +1511,22 @@ function generateEventQRCode() {
     const qrContainer = document.getElementById('eventQRCode');
     
     // 기존 QR코드 제거
-    qrContainer.innerHTML = '<i class="fas fa-spinner fa-spin fa-2x"></i>';
+    qrContainer.innerHTML = '<i class="fas fa-spinner fa-spin fa-4x text-muted"></i>';
     
     // 서버에서 QR코드 생성 요청
     fetch('/generate-event-qr')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                qrContainer.innerHTML = `<img src="${data.qr_code}" alt="이벤트 QR코드" style="width: 100%; height: 100%; border-radius: 8px;">`;
+                qrContainer.innerHTML = `<img src="${data.qr_code}" alt="이벤트 QR코드" style="width: 100%; height: 100%; border-radius: 12px;">`;
             } else {
                 console.error('이벤트 QR코드 생성 실패:', data.error);
-                qrContainer.innerHTML = '<i class="fas fa-qrcode fa-2x"></i>';
+                qrContainer.innerHTML = '<i class="fas fa-qrcode fa-4x text-muted"></i>';
             }
         })
         .catch(error => {
             console.error('이벤트 QR코드 생성 오류:', error);
-            qrContainer.innerHTML = '<i class="fas fa-qrcode fa-2x"></i>';
+            qrContainer.innerHTML = '<i class="fas fa-qrcode fa-4x text-muted"></i>';
         });
 }
 
