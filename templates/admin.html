@@ -226,6 +226,22 @@
             </div>
         </div>
     </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-qrcode me-2"></i>쿠폰 QR코드 생성
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">할인 쿠폰용 QR코드를 생성합니다.</p>
+                <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#couponGeneratorModal">
+                    <i class="fas fa-plus me-1"></i>쿠폰 생성
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- 상품 수정 모달 -->
@@ -379,9 +395,67 @@
     </div>
 </div>
 
+<!-- 쿠폰 생성 모달 -->
+<div class="modal fade" id="couponGeneratorModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-qrcode me-2"></i>쿠폰 QR코드 생성
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>쿠폰 정보 입력</h6>
+                        <div class="mb-3">
+                            <label class="form-label">쿠폰 코드</label>
+                            <input type="text" class="form-control" id="couponCode" placeholder="예: SUMMER2024" value="TEST10">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">할인 유형</label>
+                            <select class="form-select" id="discountType">
+                                <option value="percent">퍼센트 할인 (%)</option>
+                                <option value="fixed">고정 금액 할인 (원)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">할인 값</label>
+                            <input type="number" class="form-control" id="discountValue" placeholder="10" value="10" min="1">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">쿠폰 설명</label>
+                            <input type="text" class="form-control" id="couponDescription" placeholder="예: 여름 시즌 할인" value="테스트 쿠폰">
+                        </div>
+                        <button class="btn btn-primary" onclick="generateQRCode()">
+                            <i class="fas fa-qrcode me-1"></i>QR코드 생성
+                        </button>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>생성된 QR코드</h6>
+                        <div class="text-center">
+                            <div id="qrCodeContainer" class="border rounded p-3 mb-3" style="min-height: 200px; display: flex; align-items: center; justify-content: center;">
+                                <p class="text-muted">쿠폰 정보를 입력하고 QR코드를 생성해주세요</p>
+                            </div>
+                            <div id="couponInfo" class="text-start" style="display: none;">
+                                <h6>쿠폰 정보:</h6>
+                                <pre id="couponData" class="bg-light p-2 rounded"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://kit.fontawesome.com/your-fontawesome-kit.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 // 이미지 미리보기
 document.getElementById('image').addEventListener('change', function(e) {
@@ -629,5 +703,78 @@ function loadAudioSettings() {
             console.error('오디오 설정 로드 실패:', error);
         });
 }
+
+// QR코드 생성
+function generateQRCode() {
+    const code = document.getElementById('couponCode').value.trim();
+    const discountType = document.getElementById('discountType').value;
+    const discountValue = parseInt(document.getElementById('discountValue').value);
+    const description = document.getElementById('couponDescription').value.trim();
+    
+    if (!code || !discountValue) {
+        alert('쿠폰 코드와 할인 값을 입력해주세요.');
+        return;
+    }
+    
+    // 쿠폰 데이터 생성
+    const couponData = {
+        type: 'coupon',
+        code: code,
+        discount: discountValue,
+        discountType: discountType,
+        description: description,
+        createdAt: new Date().toISOString()
+    };
+    
+    const jsonString = JSON.stringify(couponData);
+    
+    // QR코드 생성
+    const qrContainer = document.getElementById('qrCodeContainer');
+    qrContainer.innerHTML = '';
+    
+    QRCode.toCanvas(qrContainer, jsonString, {
+        width: 200,
+        margin: 2,
+        color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+        }
+    }, function (error) {
+        if (error) {
+            console.error('QR코드 생성 실패:', error);
+            qrContainer.innerHTML = '<p class="text-danger">QR코드 생성에 실패했습니다.</p>';
+        } else {
+            // 쿠폰 정보 표시
+            document.getElementById('couponData').textContent = jsonString;
+            document.getElementById('couponInfo').style.display = 'block';
+            
+            // 다운로드 버튼 추가
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'btn btn-success mt-2';
+            downloadBtn.innerHTML = '<i class="fas fa-download me-1"></i>QR코드 다운로드';
+            downloadBtn.onclick = () => downloadQRCode(jsonString, code);
+            qrContainer.appendChild(downloadBtn);
+        }
+    });
+}
+
+// QR코드 다운로드
+function downloadQRCode(data, filename) {
+    const canvas = document.querySelector('#qrCodeContainer canvas');
+    if (canvas) {
+        const link = document.createElement('a');
+        link.download = `coupon_${filename}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+}
+
+// 페이지 로드 시 기본 QR코드 생성
+document.addEventListener('DOMContentLoaded', function() {
+    // 기본값으로 QR코드 생성
+    setTimeout(() => {
+        generateQRCode();
+    }, 500);
+});
 </script>
 {% endblock %} 
