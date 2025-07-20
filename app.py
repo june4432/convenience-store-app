@@ -1122,22 +1122,19 @@ def generate_lottery_qr():
 # Content Security Policy 헤더 설정
 @app.after_request
 def add_security_headers(response):
-    # CSP 헤더 완전 제거 (임시 해결책)
-    response.headers.pop('Content-Security-Policy', None)
-    
-    # 또는 아래 주석을 해제하여 CSP 허용
-    # response.headers['Content-Security-Policy'] = (
-    #     "default-src 'self'; "
-    #     "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: "
-    #     "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com "
-    #     "https://js.tosspayments.com https://kit.fontawesome.com; "
-    #     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com "
-    #     "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-    #     "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
-    #     "img-src 'self' data: blob: https:; "
-    #     "connect-src 'self' https://api.tosspayments.com; "
-    #     "frame-src 'self' https://js.tosspayments.com;"
-    # )
+    # CSP 헤더 설정 (토스페이먼츠 로그 서버 포함)
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: "
+        "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com "
+        "https://js.tosspayments.com https://kit.fontawesome.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com "
+        "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+        "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+        "img-src 'self' data: blob: https:; "
+        "connect-src 'self' https://api.tosspayments.com https://log.tosspayments.com; "
+        "frame-src 'self' https://js.tosspayments.com;"
+    )
     return response
 
 if __name__ == '__main__':
