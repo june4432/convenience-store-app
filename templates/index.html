@@ -185,6 +185,7 @@
 // 전역 변수
 let cart = {};
 const products = {{ products_data|tojson }};
+let audioContextInitialized = false; // iOS Safari 오디오 컨텍스트 초기화 상태
 
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', function() {
@@ -192,6 +193,9 @@ document.addEventListener('DOMContentLoaded', function() {
     updateCartDisplay();
     setupEventListeners();
     checkPaymentResult(); // 결제 결과 확인
+    
+    // iOS Safari용 사용자 상호작용 감지
+    setupIOSAudioSupport();
 });
 
 // 이벤트 리스너 설정
@@ -587,28 +591,81 @@ function playAudioFile(audioUrl) {
     try {
         const audio = new Audio(audioUrl);
         audio.volume = 0.7; // 볼륨 설정
+        audio.preload = 'auto'; // 미리 로드
         console.log('오디오 객체 생성 완료, 재생 시작');
         
-        audio.play().then(() => {
-            console.log('오디오 파일 재생 성공');
-        }).catch(error => {
-            console.log('오디오 파일 재생 실패:', error);
-            // 실패 시 기본 비프음 재생
-            if (audioUrl.includes('success')) {
-                playBeepSound(800, 200, 'sine');
-            } else {
-                playBeepSound(400, 300, 'sawtooth');
-            }
-        });
+        // iOS Safari 호환성을 위한 설정
+        audio.setAttribute('playsinline', 'true');
+        audio.setAttribute('webkit-playsinline', 'true');
+        
+        // 사용자 상호작용 확인
+        const playPromise = audio.play();
+        
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                console.log('오디오 파일 재생 성공');
+            }).catch(error => {
+                console.log('오디오 파일 재생 실패:', error);
+                // iOS Safari에서 자동 재생이 차단된 경우
+                if (error.name === 'NotAllowedError') {
+                    console.log('iOS Safari 자동 재생 차단됨, 사용자 상호작용 필요');
+                    // 사용자에게 알림
+                    showAudioPermissionAlert();
+                }
+                // 실패 시 기본 비프음 재생
+                if (audioUrl.includes('success')) {
+                    playBeepSound(800, 200, 'sine');
+                } else {
+                    playBeepSound(400, 300, 'sawtooth');
+                }
+            });
+        }
     } catch (error) {
         console.log('오디오 파일 재생 중 오류:', error);
     }
 }
 
+// iOS Safari 자동 재생 차단 알림
+function showAudioPermissionAlert() {
+    // 토스트 메시지로 알림
+    const toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-white bg-warning border-0 position-fixed';
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="fas fa-volume-up me-2"></i>
+                <strong>소리 재생 안내:</strong><br>
+                iOS에서는 화면을 터치한 후 소리가 재생됩니다.
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 5000);
+}
+
 // 비프음 생성 및 재생 (기본 소리)
 function playBeepSound(frequency, duration, type = 'sine') {
     try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // iOS Safari 호환성을 위한 오디오 컨텍스트 생성
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContext();
+        
+        // iOS Safari에서 오디오 컨텍스트가 일시정지된 상태일 수 있음
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         
@@ -628,6 +685,10 @@ function playBeepSound(frequency, duration, type = 'sine') {
         
     } catch (error) {
         console.log('소리 재생 실패:', error);
+        // iOS Safari에서 Web Audio API가 지원되지 않는 경우
+        if (error.name === 'NotSupportedError') {
+            console.log('Web Audio API 지원되지 않음');
+        }
     }
 }
 
@@ -732,6 +793,33 @@ function processPaymentSuccess(paymentKey, orderId, amount) {
         console.error('Error:', error);
         showPaymentResult(false, '결제 처리 중 오류가 발생했습니다.');
     });
+}
+
+// iOS Safari 오디오 지원 설정
+function setupIOSAudioSupport() {
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isIOS = /iphone|ipad|ipod/.test(userAgent);
+    const isSafari = /safari/.test(userAgent) && !/chrome/.test(userAgent);
+    
+    if (isIOS && isSafari) {
+        console.log('iOS Safari 감지됨, 오디오 지원 설정');
+        
+        // 사용자 상호작용 시 오디오 컨텍스트 초기화
+        const initAudioOnInteraction = () => {
+            if (!audioContextInitialized) {
+                console.log('사용자 상호작용 감지, 오디오 컨텍스트 초기화');
+                audioContextInitialized = true;
+                
+                // 이벤트 리스너 제거
+                document.removeEventListener('touchstart', initAudioOnInteraction);
+                document.removeEventListener('click', initAudioOnInteraction);
+            }
+        };
+        
+        // 터치와 클릭 이벤트 감지
+        document.addEventListener('touchstart', initAudioOnInteraction, { once: true });
+        document.addEventListener('click', initAudioOnInteraction, { once: true });
+    }
 }
 </script>
 {% endblock %} 
