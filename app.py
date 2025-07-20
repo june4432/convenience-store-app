@@ -156,6 +156,11 @@ def index():
     
     return render_template('index.html', products=products, products_data=products_data, categories=categories)
 
+@app.route('/customer')
+def customer():
+    """손님용 할인쿠폰 뽑기 페이지"""
+    return render_template('customer.html')
+
 @app.route('/product/<int:product_id>')
 def product_detail(product_id):
     product = Product.query.get_or_404(product_id)
@@ -1033,6 +1038,86 @@ def generate_qr_code():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/generate-event-qr', methods=['GET'])
+def generate_event_qr():
+    """이벤트 페이지 QR코드 생성"""
+    try:
+        # 이벤트 페이지 URL 생성
+        event_url = request.host_url.rstrip('/') + '/customer'
+        
+        # QR코드 생성
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=8,
+            border=2,
+        )
+        qr.add_data(event_url)
+        qr.make(fit=True)
+        
+        # 이미지 생성
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # 이미지를 base64로 인코딩
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        
+        return jsonify({
+            'success': True,
+            'qr_code': f'data:image/png;base64,{img_str}',
+            'url': event_url
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'이벤트 QR코드 생성 실패: {str(e)}'}), 500
+
+@app.route('/generate-lottery-qr', methods=['POST'])
+def generate_lottery_qr():
+    """뽑기 결과 QR코드 생성"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': '데이터가 없습니다.'}), 400
+        
+        # 쿠폰 데이터 생성
+        discount = data.get('discount', 1000)
+        coupon_data = {
+            'type': 'coupon',
+            'code': data.get('code', f'{discount}원쿠폰'),
+            'discount': discount,
+            'discountType': 'fixed',
+            'description': f'{discount}원 쿠폰',
+            'createdAt': datetime.now().isoformat()
+        }
+        
+        # QR코드 생성
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(json.dumps(coupon_data, ensure_ascii=False))
+        qr.make(fit=True)
+        
+        # 이미지 생성
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # 이미지를 base64로 인코딩
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        
+        return jsonify({
+            'success': True,
+            'qr_code': f'data:image/png;base64,{img_str}',
+            'data': coupon_data
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'뽑기 QR코드 생성 실패: {str(e)}'}), 500
 
 # Content Security Policy 헤더 설정
 @app.after_request

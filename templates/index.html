@@ -2,7 +2,175 @@
 
 {% block title %}대환장편의점 - 쇼핑{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* 이벤트 배너 스타일 */
+    .event-banner {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
+        color: white;
+        padding: 15px 0;
+        position: relative;
+        overflow: hidden;
+        display: none;
+        animation: slideDown 0.5s ease;
+    }
+    
+    @keyframes slideDown {
+        from { transform: translateY(-100%); }
+        to { transform: translateY(0); }
+    }
+    
+    .event-banner::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        animation: shine 3s infinite;
+    }
+    
+    @keyframes shine {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    
+    .event-content h4 {
+        margin: 0;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .event-content p {
+        margin: 0;
+        opacity: 0.9;
+    }
+    
+    .event-qr-container {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+    }
+    
+    .event-qr-code {
+        width: 60px;
+        height: 60px;
+        background: white;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #333;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .event-qr-code:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    }
+    
+    .event-qr-code img {
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+    }
+    
+    /* 포스 헤더 스타일 */
+    .pos-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 10px 0;
+        margin-bottom: 20px;
+    }
+    
+    .pos-header p {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+    
+    /* 상품 카드 스타일 */
+    .product-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .product-card:active {
+        transform: translateY(-2px);
+    }
+    
+    /* 장바구니 스타일 */
+    .cart-item {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-left: 4px solid #28a745;
+    }
+    
+    .price-tag .badge {
+        font-size: 1rem;
+        padding: 8px 12px;
+    }
+    
+    /* 카테고리 버튼 스타일 */
+    .btn-group .btn {
+        border-radius: 20px;
+        margin: 2px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-group .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .btn-group .btn.active {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        border-color: #667eea;
+        color: white;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+<!-- 이벤트 배너 -->
+<div class="event-banner" id="eventBanner">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="event-content">
+                    <h4 class="mb-1">
+                        <i class="fas fa-gift text-warning me-2"></i>
+                        🎰 할인쿠폰 뽑기 이벤트! 🎰
+                    </h4>
+                    <p class="mb-0">1000원~10000원 할인쿠폰을 뽑아보세요! 아래 QR코드를 스캔하세요!</p>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="event-qr-container">
+                    <div class="event-qr-code" id="eventQRCode">
+                        <i class="fas fa-qrcode fa-2x"></i>
+                    </div>
+                    <button class="btn btn-sm btn-outline-light ms-2" onclick="toggleEventBanner()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="pos-header">
     <div class="container-fluid">
         <div class="row align-items-center">
@@ -18,6 +186,11 @@
                     <div class="me-3">
                         <i class="fas fa-calendar me-1"></i>
                         <span id="current-date"></span>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="toggleEventBanner()" id="eventToggleBtn">
+                            <i class="fas fa-gift"></i> 이벤트
+                        </button>
                     </div>
                 </div>
             </div>
@@ -237,6 +410,8 @@
 
 <!-- QR코드 스캔 라이브러리 -->
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+
 
 <script>
 // 전역 변수
@@ -472,7 +647,7 @@ function updateCartDisplay() {
         // 할인 정보 표시
         const discountInfoElement = document.createElement('small');
         discountInfoElement.className = 'text-success d-block';
-        discountInfoElement.textContent = `쿠폰: ${currentCoupon.code} (${discountInfo})`;
+        discountInfoElement.textContent = `${currentCoupon.description} (${discountInfo})`;
         couponDiscountElement.appendChild(discountInfoElement);
         
         // 쿠폰 버튼 업데이트 (취소 버튼 추가)
@@ -1326,6 +1501,51 @@ function processQRCode(qrData) {
         console.error('QR코드 파싱 실패:', error);
         showToast('올바르지 않은 QR코드입니다.', 'error');
     }
+}
+
+// 이벤트 배너 토글
+function toggleEventBanner() {
+    const banner = document.getElementById('eventBanner');
+    const toggleBtn = document.getElementById('eventToggleBtn');
+    
+    if (banner.style.display === 'none' || banner.style.display === '') {
+        banner.style.display = 'block';
+        toggleBtn.innerHTML = '<i class="fas fa-times"></i> 닫기';
+        toggleBtn.classList.remove('btn-outline-primary');
+        toggleBtn.classList.add('btn-outline-warning');
+        
+        // 이벤트 QR코드 생성
+        generateEventQRCode();
+    } else {
+        banner.style.display = 'none';
+        toggleBtn.innerHTML = '<i class="fas fa-gift"></i> 이벤트';
+        toggleBtn.classList.remove('btn-outline-warning');
+        toggleBtn.classList.add('btn-outline-primary');
+    }
+}
+
+// 이벤트 QR코드 생성
+function generateEventQRCode() {
+    const qrContainer = document.getElementById('eventQRCode');
+    
+    // 기존 QR코드 제거
+    qrContainer.innerHTML = '<i class="fas fa-spinner fa-spin fa-2x"></i>';
+    
+    // 서버에서 QR코드 생성 요청
+    fetch('/generate-event-qr')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                qrContainer.innerHTML = `<img src="${data.qr_code}" alt="이벤트 QR코드" style="width: 100%; height: 100%; border-radius: 8px;">`;
+            } else {
+                console.error('이벤트 QR코드 생성 실패:', data.error);
+                qrContainer.innerHTML = '<i class="fas fa-qrcode fa-2x"></i>';
+            }
+        })
+        .catch(error => {
+            console.error('이벤트 QR코드 생성 오류:', error);
+            qrContainer.innerHTML = '<i class="fas fa-qrcode fa-2x"></i>';
+        });
 }
 
 // 토스트 메시지 표시
