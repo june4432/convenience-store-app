@@ -13,8 +13,11 @@
                 <p class="mb-0 mt-2">대환장편의점 - 카냥이 사장님 전용 관리 도구 🐱</p>
             </div>
             <div class="col-md-4 text-end">
-                <a href="{{ url_for('index') }}" class="btn btn-light">
+                <a href="{{ url_for('index') }}" class="btn btn-light me-2">
                     <i class="fas fa-store me-1"></i>매장으로 돌아가기
+                </a>
+                <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">
+                    <i class="fas fa-sign-out-alt me-1"></i>로그아웃
                 </a>
             </div>
         </div>

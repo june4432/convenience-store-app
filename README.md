@@ -53,6 +53,9 @@ TOSS_SECURITY_KEY=your_security_key_here
 # Flask 설정
 SECRET_KEY=your-secret-key-here
 FLASK_ENV=development
+
+# 관리자 설정
+ADMIN_PASSWORD=your_admin_password_here
 ```
 
 ### 5. 서버 실행
@@ -69,9 +72,11 @@ http://localhost:5000
 
 ### 관리자 페이지
 - URL: `http://localhost:5000/admin`
+- **로그인 필요**: 관리자 비밀번호 입력 후 접근
 - 상품 등록, 수정, 삭제
 - 카테고리 관리
 - 주문 상태 관리
+- 로그아웃 기능
 
 ### 카테고리 관리
 - URL: `http://localhost:5000/admin/categories`
@@ -109,6 +114,7 @@ convenience_store/
 | `TOSS_SECRET_KEY` | 토스페이먼츠 시크릿 키 | ✅ |
 | `TOSS_SECURITY_KEY` | 토스페이먼츠 보안 키 | ✅ |
 | `SECRET_KEY` | Flask 시크릿 키 | ✅ |
+| `ADMIN_PASSWORD` | 관리자 비밀번호 | ❌ (기본값: admin123) |
 
 ## 주의사항
 

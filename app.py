@@ -30,6 +30,9 @@ app.config['TOSS_SECRET_KEY'] = os.getenv('TOSS_SECRET_KEY')
 app.config['TOSS_SECURITY_KEY'] = os.getenv('TOSS_SECURITY_KEY')
 app.config['TOSS_API_URL'] = 'https://api.tosspayments.com'
 
+# 관리자 설정
+app.config['ADMIN_PASSWORD'] = os.getenv('ADMIN_PASSWORD', 'admin123')
+
 # 이미지 업로드 설정
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}  # webp 추가
@@ -45,6 +48,17 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(AUDIO_FOLDER, exist_ok=True)
 
 db = SQLAlchemy(app)
+
+# 관리자 인증 데코레이터
+from functools import wraps
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('admin_logged_in'):
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # 파일 크기 제한 에러 핸들러
 @app.errorhandler(413)
@@ -231,7 +245,29 @@ def order_success(order_id):
     order = Order.query.get_or_404(order_id)
     return render_template('order_success.html', order=order)
 
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """관리자 로그인"""
+    if request.method == 'POST':
+        password = request.form.get('password')
+        if password == app.config['ADMIN_PASSWORD']:
+            session['admin_logged_in'] = True
+            flash('관리자로 로그인되었습니다.', 'success')
+            return redirect(url_for('admin'))
+        else:
+            flash('비밀번호가 올바르지 않습니다.', 'error')
+    
+    return render_template('admin_login.html')
+
+@app.route('/admin/logout')
+def admin_logout():
+    """관리자 로그아웃"""
+    session.pop('admin_logged_in', None)
+    flash('로그아웃되었습니다.', 'info')
+    return redirect(url_for('index'))
+
 @app.route('/admin')
+@admin_required
 def admin():
     """관리자 페이지"""
     products = Product.query.all()
@@ -240,6 +276,7 @@ def admin():
     return render_template('admin.html', products=products, orders=orders, categories=categories)
 
 @app.route('/admin/order/<int:order_id>/status', methods=['POST'])
+@admin_required
 def update_order_status(order_id):
     order = Order.query.get_or_404(order_id)
     status = request.form.get('status')
@@ -583,6 +620,7 @@ def save_audio(file):
     return None
 
 @app.route('/admin/product/<int:product_id>', methods=['GET'])
+@admin_required
 def get_product(product_id):
     """상품 정보 조회"""
     product = Product.query.get_or_404(product_id)
@@ -597,6 +635,7 @@ def get_product(product_id):
     })
 
 @app.route('/admin/product/<int:product_id>', methods=['POST'])
+@admin_required
 def update_product(product_id):
     """상품 수정"""
     try:
@@ -625,6 +664,7 @@ def update_product(product_id):
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/admin/product/<int:product_id>', methods=['DELETE'])
+@admin_required
 def delete_product(product_id):
     """상품 삭제"""
     try:
@@ -645,6 +685,7 @@ def delete_product(product_id):
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/add_product', methods=['POST'])
+@admin_required
 def add_product():
     """상품 등록"""
     try:
@@ -684,12 +725,14 @@ def add_product():
         return redirect(url_for('admin'))
 
 @app.route('/admin/categories')
+@admin_required
 def admin_categories():
     """카테고리 관리 페이지"""
     categories = Category.query.order_by(Category.name).all()
     return render_template('admin_categories.html', categories=categories)
 
 @app.route('/admin/category/add', methods=['POST'])
+@admin_required
 def add_category():
     """카테고리 추가"""
     try:
@@ -722,6 +765,7 @@ def add_category():
         return redirect(url_for('admin_categories'))
 
 @app.route('/admin/category/<int:category_id>', methods=['GET'])
+@admin_required
 def get_category(category_id):
     """카테고리 정보 조회"""
     category = Category.query.get_or_404(category_id)
@@ -734,6 +778,7 @@ def get_category(category_id):
     })
 
 @app.route('/admin/category/<int:category_id>', methods=['POST'])
+@admin_required
 def update_category(category_id):
     """카테고리 수정"""
     try:
@@ -762,6 +807,7 @@ def update_category(category_id):
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/admin/category/<int:category_id>', methods=['DELETE'])
+@admin_required
 def delete_category(category_id):
     """카테고리 삭제"""
     try:
@@ -780,6 +826,7 @@ def delete_category(category_id):
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/admin/audio/upload', methods=['POST'])
+@admin_required
 def upload_audio():
     """오디오 파일 업로드"""
     try:
@@ -814,6 +861,7 @@ def upload_audio():
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/admin/audio/settings')
+@admin_required
 def get_audio_settings():
     """오디오 설정 조회"""
     settings = AudioSettings.query.first()
