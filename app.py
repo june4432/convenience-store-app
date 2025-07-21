@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone, timedelta
 import os
@@ -1118,6 +1118,119 @@ def generate_lottery_qr():
         
     except Exception as e:
         return jsonify({'error': f'뽑기 QR코드 생성 실패: {str(e)}'}), 500
+
+# === [커스텀 결제: 주문 생성 및 QR코드 반환] ===
+@app.route('/custompay/request', methods=['POST'])
+def custompay_request():
+    """주문 생성 및 결제 QR코드(결제 URL) 반환"""
+    if 'cart' not in session or not session['cart']:
+        return jsonify({'error': '장바구니가 비어있습니다.'}), 400
+    try:
+        # 장바구니 정보
+        cart_items = []
+        total = 0
+        for product_id, item_data in session['cart'].items():
+            product = Product.query.get(int(product_id))
+            if product:
+                quantity = item_data.get('quantity', 1)
+                item_total = product.price * quantity
+                cart_items.append({
+                    'product': product,
+                    'quantity': quantity,
+                    'total': item_total
+                })
+                total += item_total
+        if not cart_items:
+            return jsonify({'error': '장바구니에 유효한 상품이 없습니다.'}), 400
+        # 주문 생성
+        order = Order(
+            customer_name=request.form.get('customer_name', '고객'),
+            customer_phone=request.form.get('customer_phone', '000-0000-0000'),
+            total_amount=total
+        )
+        db.session.add(order)
+        db.session.flush()
+        # 주문 아이템 생성
+        for item in cart_items:
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=item['product'].id,
+                quantity=item['quantity'],
+                price=item['product'].price
+            )
+            db.session.add(order_item)
+        db.session.commit()
+        # 결제 URL 생성
+        pay_url = url_for('custompay_pay', order_id=order.id, _external=True)
+        # QR코드 생성
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(pay_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        return jsonify({
+            'success': True,
+            'order_id': order.id,
+            'pay_url': pay_url,
+            'qr_code': f'data:image/png;base64,{img_str}'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# === [커스텀 결제: 고객용 결제 페이지] ===
+@app.route('/custompay/pay/<int:order_id>', methods=['GET', 'POST'])
+def custompay_pay(order_id):
+    order = Order.query.get_or_404(order_id)
+    if request.method == 'POST':
+        # 결제 완료 처리로 리다이렉트
+        return redirect(url_for('custompay_complete', order_id=order_id))
+    # 간단한 결제수단 선택 폼 (디자인은 추후)
+    return f'''
+    <html><head><title>커스텀 결제</title></head><body style="text-align:center; margin-top:50px;">
+    <h2>가상 결제 (테스트)</h2>
+    <p>주문번호: {order.id}</p>
+    <p>결제금액: {int(order.total_amount):,}원</p>
+    <form method="post">
+        <label>결제수단 선택:</label>
+        <select name="method">
+            <option value="card">신용카드</option>
+            <option value="cash">현금</option>
+            <option value="kakao">카카오페이</option>
+            <option value="naver">네이버페이</option>
+        </select><br><br>
+        <button type="submit" style="font-size:1.2em;">결제하기</button>
+    </form>
+    </body></html>
+    '''
+
+# === [커스텀 결제: 결제 완료 처리] ===
+@app.route('/custompay/complete/<int:order_id>', methods=['GET'])
+def custompay_complete(order_id):
+    order = Order.query.get_or_404(order_id)
+    order.status = 'completed'
+    db.session.commit()
+    # 결제 완료 안내 (디자인은 추후)
+    return f'''
+    <html><head><title>결제 완료</title></head><body style="text-align:center; margin-top:50px;">
+    <h2 style="color:green;">결제가 완료되었습니다!</h2>
+    <p>주문번호: {order.id}</p>
+    <p>포스기 화면을 확인해주세요.</p>
+    </body></html>
+    '''
+
+# === [커스텀 결제: 결제 상태 조회] ===
+@app.route('/custompay/status/<int:order_id>', methods=['GET'])
+def custompay_status(order_id):
+    order = Order.query.get_or_404(order_id)
+    return jsonify({'order_id': order.id, 'status': order.status})
 
 # Content Security Policy 헤더 설정
 @app.after_request

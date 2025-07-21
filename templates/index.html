@@ -309,6 +309,10 @@
                             <button class="btn btn-outline-secondary" id="clear-cart-btn" disabled>
                                 <i class="fas fa-trash"></i> 장바구니 비우기
                             </button>
+                            <!-- 커스텀 결제 버튼 추가 -->
+                            <button class="btn btn-warning mt-2" id="custompay-btn" disabled>
+                                <i class="fas fa-qrcode"></i> 커스텀 결제 (QR)
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -374,6 +378,28 @@
     </div>
 </div>
 
+<!-- 커스텀 결제 QR코드 모달 -->
+<div class="modal fade" id="custompayModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i>커스텀 결제 QR코드</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="custompay-qr-container">
+                    <div class="mb-2">아래 QR코드를 고객이 스캔하여 결제를 진행하세요.</div>
+                    <div id="custompay-qr" class="mb-3"><i class="fas fa-spinner fa-spin fa-3x text-muted"></i></div>
+                    <div id="custompay-status" class="mt-2"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 로딩 오버레이 -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="text-center">
@@ -394,8 +420,6 @@
 <!-- QR코드 스캔 라이브러리 -->
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
-
-
 <script>
 // 전역 변수
 let cart = {};
@@ -403,6 +427,7 @@ const products = {{ products_data|tojson }};
 let audioContextInitialized = false; // iOS Safari 오디오 컨텍스트 초기화 상태
 let currentCoupon = null; // 현재 적용된 쿠폰
 let qrStream = null; // QR 스캔 스트림
+let custompayPolling = null;
 
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', function() {
@@ -413,6 +438,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // iOS Safari용 사용자 상호작용 감지
     setupIOSAudioSupport();
+
+    document.getElementById('custompay-btn').addEventListener('click', function() {
+        openCustomPayModal();
+    });
 });
 
 // 이벤트 리스너 설정
@@ -656,6 +685,8 @@ function updateCartDisplay() {
             </button>
         `;
     }
+    // 커스텀 결제 버튼 상태도 업데이트
+    updateCustomPayButton();
 }
 
 // 세션에 장바구니 저장
@@ -1564,6 +1595,58 @@ function showToast(message, type = 'info') {
             toast.remove();
         }
     }, 3000);
+}
+
+// 커스텀 결제 버튼 활성화/비활성화
+function updateCustomPayButton() {
+    const btn = document.getElementById('custompay-btn');
+    if (Object.keys(cart).length === 0) {
+        btn.disabled = true;
+    } else {
+        btn.disabled = false;
+    }
+}
+
+// 커스텀 결제 버튼 이벤트 및 모달 관련 코드 복구
+function openCustomPayModal() {
+    // 모달 열기
+    const modal = new bootstrap.Modal(document.getElementById('custompayModal'));
+    modal.show();
+    // QR코드 영역 초기화
+    document.getElementById('custompay-qr').innerHTML = '<i class="fas fa-spinner fa-spin fa-3x text-muted"></i>';
+    document.getElementById('custompay-status').textContent = '';
+    // 결제 요청
+    fetch('/custompay/request', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('custompay-qr').innerHTML = `<img src="${data.qr_code}" alt="QR코드" style="width:220px; height:220px;">`;
+                // 결제 상태 polling 시작
+                startCustomPayPolling(data.order_id, modal);
+            } else {
+                document.getElementById('custompay-qr').innerHTML = '<div class="text-danger">QR코드 생성 실패</div>';
+            }
+        })
+        .catch(() => {
+            document.getElementById('custompay-qr').innerHTML = '<div class="text-danger">서버 오류</div>';
+        });
+}
+
+function startCustomPayPolling(orderId, modal) {
+    if (custompayPolling) clearInterval(custompayPolling);
+    let statusDiv = document.getElementById('custompay-status');
+    custompayPolling = setInterval(() => {
+        fetch(`/custompay/status/${orderId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'completed') {
+                    clearInterval(custompayPolling);
+                    statusDiv.innerHTML = '<span class="text-success fw-bold">결제 완료!</span>';
+                    showToast('커스텀 결제가 완료되었습니다!', 'success');
+                    setTimeout(() => { modal.hide(); clearCart(); }, 1500);
+                }
+            });
+    }, 1200);
 }
 </script>
 {% endblock %} 
