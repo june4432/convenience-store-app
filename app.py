@@ -1190,26 +1190,8 @@ def custompay_request():
 def custompay_pay(order_id):
     order = Order.query.get_or_404(order_id)
     if request.method == 'POST':
-        # 결제 완료 처리로 리다이렉트
         return redirect(url_for('custompay_complete', order_id=order_id))
-    # 간단한 결제수단 선택 폼 (디자인은 추후)
-    return f'''
-    <html><head><title>커스텀 결제</title></head><body style="text-align:center; margin-top:50px;">
-    <h2>가상 결제 (테스트)</h2>
-    <p>주문번호: {order.id}</p>
-    <p>결제금액: {int(order.total_amount):,}원</p>
-    <form method="post">
-        <label>결제수단 선택:</label>
-        <select name="method">
-            <option value="card">신용카드</option>
-            <option value="cash">현금</option>
-            <option value="kakao">카카오페이</option>
-            <option value="naver">네이버페이</option>
-        </select><br><br>
-        <button type="submit" style="font-size:1.2em;">결제하기</button>
-    </form>
-    </body></html>
-    '''
+    return render_template('custompay_pay.html', order=order)
 
 # === [커스텀 결제: 결제 완료 처리] ===
 @app.route('/custompay/complete/<int:order_id>', methods=['GET'])
@@ -1217,14 +1199,7 @@ def custompay_complete(order_id):
     order = Order.query.get_or_404(order_id)
     order.status = 'completed'
     db.session.commit()
-    # 결제 완료 안내 (디자인은 추후)
-    return f'''
-    <html><head><title>결제 완료</title></head><body style="text-align:center; margin-top:50px;">
-    <h2 style="color:green;">결제가 완료되었습니다!</h2>
-    <p>주문번호: {order.id}</p>
-    <p>포스기 화면을 확인해주세요.</p>
-    </body></html>
-    '''
+    return render_template('custompay_complete.html', order=order)
 
 # === [커스텀 결제: 결제 상태 조회] ===
 @app.route('/custompay/status/<int:order_id>', methods=['GET'])
