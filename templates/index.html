@@ -383,7 +383,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-warning">
-                <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i>커스텀 결제 QR코드</h5>
+                <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i>QR코드로 결제하기</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body text-center">
@@ -1642,7 +1642,7 @@ function startCustomPayPolling(orderId, modal) {
                 if (data.status === 'completed') {
                     clearInterval(custompayPolling);
                     modal.hide();
-                    showPaymentResult(true, '커스텀 결제가 완료되었습니다.', data.order_id);
+                    showPaymentResult(true, 'QR코드 결제가 완료되었습니다.', data.order_id);
                     clearCart();
                 }
             });
