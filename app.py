@@ -406,8 +406,10 @@ def admin_logout():
 @admin_required
 def admin():
     """관리자 페이지"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
     products = Product.query.all()
-    orders = Order.query.order_by(Order.order_date.desc()).all()
+    orders = Order.query.order_by(Order.order_date.desc()).paginate(page=page, per_page=per_page, error_out=False)
     categories = Category.query.order_by(Category.name).all()
     return render_template('admin.html', products=products, orders=orders, categories=categories)
 
