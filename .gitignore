@@ -1,4 +1,4 @@
-# È¯°æº¯¼ö ÆÄÀÏ
+# È¯ï¿½æº¯ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 .env
 
 # Python
@@ -23,20 +23,22 @@ wheels/
 .installed.cfg
 *.egg
 
-# °¡»óÈ¯°æ
+# ï¿½ï¿½ï¿½ï¿½È¯ï¿½ï¿½
 venv/
 env/
 ENV/
 env.bak/
 venv.bak/
 
-# µ¥ÀÌÅÍº£ÀÌ½º
+# ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½ï¿½Ì½ï¿½
 *.db
 *.sqlite3
 instance/
 
-# ¾÷·ÎµåµÈ ÆÄÀÏ
+# ï¿½ï¿½ï¿½Îµï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 static/uploads/
+static/audio/*
+!static/audio/.gitkeep
 
 # IDE
 .vscode/
