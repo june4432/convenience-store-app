@@ -347,7 +347,7 @@
                     </button>
                     <button class="btn btn-secondary ms-2" onclick="stopQRScanner()">
                         <i class="fas fa-stop me-1"></i>카메라 중지
-                    </button>
+                    </button>ㅎ
                 </div>
             </div>
         </div>
@@ -1138,7 +1138,7 @@ function processPaymentSuccess(paymentKey, orderId, amount) {
         if (data.success) {
             // 모든 backdrop 강제 제거
             document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-            showPaymentResult(true, 'QR코드 결제가 완료되었습니다.', data.order_id);
+            showPaymentResult(true, '결제가 완료되었습니다.', data.order_id);
             clearCart();
         } else {
             showPaymentResult(false, data.message || '결제 처리 중 오류가 발생했습니다.');
