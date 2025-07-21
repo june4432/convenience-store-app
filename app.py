@@ -1222,6 +1222,7 @@ def add_security_headers(response):
         "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
         "img-src 'self' data: blob: https:; "
+        "media-src 'self' data: blob: https:; "  # <-- 이 줄 추가!
         "connect-src 'self' https://api.tosspayments.com https://log.tosspayments.com "
         "https://event.tosspayments.com https://apigw-sandbox.tosspayments.com "
         "https://*.tosspayments.com; "
