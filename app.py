@@ -271,135 +271,14 @@ def admin_login():
         password = request.form.get('password')
         if password == app.config['ADMIN_PASSWORD']:
             session['admin_logged_in'] = True
-            flash('관리자로 로그인되었습니다.', 'success')
             return redirect(url_for('admin'))
         else:
             flash('비밀번호가 올바르지 않습니다.', 'error')
-    
-    # 템플릿 파일이 없을 경우를 대비해 직접 HTML 반환
-    try:
-        return render_template('admin_login.html')
-    except:
-        # 임시 HTML 반환
-        html_content = '''
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>관리자 로그인 - 편의점</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .login-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            padding: 2rem;
-            width: 100%;
-            max-width: 400px;
-        }
-        .login-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .login-header i {
-            font-size: 3rem;
-            color: #667eea;
-            margin-bottom: 1rem;
-        }
-        .form-control {
-            border-radius: 10px;
-            border: 2px solid #e9ecef;
-            padding: 0.75rem 1rem;
-            transition: all 0.3s ease;
-        }
-        .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        }
-        .btn-login {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 10px;
-            padding: 0.75rem 2rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        .back-link {
-            text-align: center;
-            margin-top: 1rem;
-        }
-        .back-link a {
-            color: #667eea;
-            text-decoration: none;
-        }
-        .back-link a:hover {
-            text-decoration: underline;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-6 col-lg-4">
-                <div class="login-card">
-                    <div class="login-header">
-                        <i class="fas fa-user-shield"></i>
-                        <h3>관리자 로그인</h3>
-                        <p class="text-muted">관리자 비밀번호를 입력하세요</p>
-                    </div>
-                    
-                    <form method="POST">
-                        <div class="mb-3">
-                            <label for="password" class="form-label">비밀번호</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-lock"></i>
-                                </span>
-                                <input type="password" class="form-control" id="password" name="password" required>
-                            </div>
-                        </div>
-                        
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-login">
-                                <i class="fas fa-sign-in-alt me-2"></i>로그인
-                            </button>
-                        </div>
-                    </form>
-                    
-                    <div class="back-link">
-                        <a href="/">
-                            <i class="fas fa-arrow-left me-1"></i>메인 페이지로 돌아가기
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
-        '''
-        return html_content
+    return render_template('admin_login.html')
 
 @app.route('/admin/logout')
 def admin_logout():
-    """관리자 로그아웃"""
     session.pop('admin_logged_in', None)
-    flash('로그아웃되었습니다.', 'info')
     return redirect(url_for('index'))
 
 @app.route('/admin')
