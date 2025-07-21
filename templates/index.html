@@ -1631,9 +1631,16 @@ function startCustomPayPolling(orderId, modal) {
             .then(data => {
                 if (data.status === 'completed') {
                     clearInterval(custompayPolling);
+                    // 모달 닫기
                     modal.hide();
-                    showPaymentResult(true, 'QR코드 결제가 완료되었습니다.', data.order_id);
-                    clearCart();
+                    // 모달이 완전히 닫힌 후 결제완료 모달 띄우기
+                    const custompayModalEl = document.getElementById('custompayModal');
+                    const handler = function() {
+                        showPaymentResult(true, 'QR코드 결제가 완료되었습니다.', data.order_id);
+                        clearCart();
+                        custompayModalEl.removeEventListener('hidden.bs.modal', handler);
+                    };
+                    custompayModalEl.addEventListener('hidden.bs.modal', handler);
                 }
             });
     }, 1200);
