@@ -113,6 +113,7 @@ class Order(db.Model):
     
     # 관계 설정
     payments = db.relationship('Payment', backref='order', lazy=True)
+    order_items = db.relationship('OrderItem', backref='order', lazy=True)
 
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -211,9 +212,10 @@ def cart():
     total_amount = 0
     total_quantity = 0
     
-    for product_id, quantity in session['cart'].items():
+    for product_id, item_data in session['cart'].items():
         product = Product.query.get(int(product_id))
-        if product:
+        if product and isinstance(item_data, dict):
+            quantity = item_data.get('quantity', 1)
             item_total = product.price * quantity
             cart_items.append({
                 'id': product.id,
@@ -239,12 +241,15 @@ def update_cart_quantity():
         session['cart'] = {}
 
     if product_id in session['cart']:
-        session['cart'][product_id] += change
-        if session['cart'][product_id] <= 0:
-            del session['cart'][product_id]
-        session.modified = True # 세션 변경 사항 저장
-        return jsonify({'success': True})
-    
+        item = session['cart'][product_id]
+        if isinstance(item, dict):
+            item['quantity'] = item.get('quantity', 1) + change
+            if item['quantity'] <= 0:
+                del session['cart'][product_id]
+            else:
+                session['cart'][product_id] = item
+            session.modified = True
+            return jsonify({'success': True})
     return jsonify({'success': False, 'message': '장바구니에 없는 상품입니다.'})
 
 @app.route('/remove_from_cart', methods=['POST'])
@@ -314,56 +319,67 @@ def request_payment():
         # 장바구니 정보 가져오기 (새로운 형식)
         cart_items = []
         total = 0
-        
         for product_id, item_data in session['cart'].items():
             product = Product.query.get(int(product_id))
             if product:
                 quantity = item_data.get('quantity', 1)
                 item_total = product.price * quantity
                 cart_items.append({
-                    'product': product,
+                    'product': {
+                        'id': product.id,
+                        'name': product.name,
+                        'price': product.price,
+                        'image_url': product.image_url,
+                        'category': product.category,
+                        'description': product.description,
+                    },
                     'quantity': quantity,
                     'total': item_total
                 })
                 total += item_total
-        
         if not cart_items:
             return jsonify({'error': '장바구니에 유효한 상품이 없습니다.'}), 400
-        
+        # 할인 적용된 금액/쿠폰 정보 처리
+        final_amount = request.form.get('finalAmount')
+        coupon_info = request.form.get('coupon')
+        try:
+            final_amount = int(final_amount) if final_amount else total
+        except Exception:
+            final_amount = total
         # 주문 생성
         order = Order(
             customer_name=request.form.get('customer_name', '고객'),
             customer_phone=request.form.get('customer_phone', '000-0000-0000'),
-            total_amount=total
+            total_amount=final_amount
         )
         db.session.add(order)
         db.session.flush()
-        
         # 주문 아이템 생성
         for item in cart_items:
             order_item = OrderItem(
                 order_id=order.id,
-                product_id=item['product'].id,
+                product_id=item['product']['id'],
                 quantity=item['quantity'],
-                price=item['product'].price
+                price=item['product']['price']
             )
             db.session.add(order_item)
-        
         # 결제 정보 생성
         payment_key = create_payment_key()
         payment = Payment(
             order_id=order.id,
             payment_key=payment_key,
-            amount=total
+            amount=final_amount
         )
         db.session.add(payment)
         db.session.commit()
-        
+        # 쿠폰 정보 로그(또는 저장)
+        if coupon_info:
+            app.logger.info(f'쿠폰 적용: {coupon_info}')
         # 토스페이먼츠 결제 요청 데이터
         payment_data = {
             "amount": {
                 "currency": "KRW",
-                "value": int(total)
+                "value": int(final_amount)
             },
             "orderId": f"order_{order.id}_{payment_key[:8]}",
             "orderName": get_order_items_text(cart_items),
@@ -373,7 +389,6 @@ def request_payment():
             "failUrl": url_for('payment_fail', _external=True),
             "windowTarget": "iframe"
         }
-        
         return jsonify({
             'success': True,
             'payment_data': payment_data,
@@ -526,24 +541,32 @@ def payment_widget():
     """결제위젯 페이지"""
     if 'cart' not in session or not session['cart']:
         return redirect(url_for('cart'))
-    
     cart_items = []
     total = 0
-    
-    for product_id, quantity in session['cart'].items():
+    total_quantity = 0
+    for product_id, item_data in session['cart'].items():
         product = Product.query.get(int(product_id))
-        if product:
+        if product and isinstance(item_data, dict):
+            quantity = item_data.get('quantity', 1)
             item_total = product.price * quantity
             cart_items.append({
-                'product': product,
+                'product': {
+                    'id': product.id,
+                    'name': product.name,
+                    'price': product.price,
+                    'image_url': product.image_url,
+                    'category': product.category,
+                    'description': product.description,
+                },
                 'quantity': quantity,
                 'total': item_total
             })
             total += item_total
-    
+            total_quantity += quantity
     return render_template('payment_widget.html', 
                          cart_items=cart_items, 
                          total=total,
+                         total_quantity=total_quantity,
                          client_key=app.config['TOSS_CLIENT_KEY'])
 
 # 토스페이먼츠 결제 관련 함수들
@@ -560,9 +583,9 @@ def create_payment_key():
 def get_order_items_text(cart_items):
     """주문 상품명 생성"""
     if len(cart_items) == 1:
-        return cart_items[0]['product'].name
+        return cart_items[0]['product']['name']
     else:
-        return f"{cart_items[0]['product'].name} 외 {len(cart_items)-1}건"
+        return f"{cart_items[0]['product']['name']} 외 {len(cart_items)-1}건"
 
 # 초기 데이터 생성
 def create_sample_data():
@@ -1011,6 +1034,15 @@ def custompay_request():
     if 'cart' not in session or not session['cart']:
         return jsonify({'error': '장바구니가 비어있습니다.'}), 400
     try:
+        # 쿠폰 정보 처리 (JSON 요청 지원)
+        coupon_info = None
+        if request.is_json:
+            data = request.get_json()
+            coupon_info = data.get('coupon')
+            if coupon_info:
+                session['custompay_coupon'] = coupon_info
+        else:
+            coupon_info = session.get('custompay_coupon')
         # 장바구니 정보
         cart_items = []
         total = 0
@@ -1020,18 +1052,39 @@ def custompay_request():
                 quantity = item_data.get('quantity', 1)
                 item_total = product.price * quantity
                 cart_items.append({
-                    'product': product,
+                    'product': {
+                        'id': product.id,
+                        'name': product.name,
+                        'price': product.price,
+                        'image_url': product.image_url,
+                        'category': product.category,
+                        'description': product.description,
+                    },
                     'quantity': quantity,
                     'total': item_total
                 })
                 total += item_total
         if not cart_items:
             return jsonify({'error': '장바구니에 유효한 상품이 없습니다.'}), 400
+        # 할인 적용
+        discount = 0
+        if coupon_info:
+            import json
+            try:
+                coupon = coupon_info if isinstance(coupon_info, dict) else json.loads(coupon_info)
+                if coupon.get('type') == 'coupon' and coupon.get('discount'):
+                    if coupon.get('discountType') == 'percent':
+                        discount = int(total * (coupon['discount'] / 100))
+                    else:
+                        discount = min(int(coupon['discount']), total)
+            except Exception as e:
+                app.logger.warning(f'쿠폰 파싱 오류: {e}')
+        final_amount = total - discount
         # 주문 생성
         order = Order(
             customer_name=request.form.get('customer_name', '고객'),
             customer_phone=request.form.get('customer_phone', '000-0000-0000'),
-            total_amount=total
+            total_amount=final_amount
         )
         db.session.add(order)
         db.session.flush()
@@ -1039,9 +1092,9 @@ def custompay_request():
         for item in cart_items:
             order_item = OrderItem(
                 order_id=order.id,
-                product_id=item['product'].id,
+                product_id=item['product']['id'],
                 quantity=item['quantity'],
-                price=item['product'].price
+                price=item['product']['price']
             )
             db.session.add(order_item)
         db.session.commit()
@@ -1084,6 +1137,7 @@ def custompay_complete(order_id):
     order = Order.query.get_or_404(order_id)
     order.status = 'completed'
     db.session.commit()
+    session.pop('cart', None)  # 결제 완료 시 장바구니 비우기
     return render_template('custompay_complete.html', order=order)
 
 # === [커스텀 결제: 결제 상태 조회] ===
@@ -1124,6 +1178,52 @@ def audio_success_list():
             if fname.lower().startswith('success') and fname.lower().endswith(allowed_exts):
                 files.append(url_for('static', filename=f'audio/{fname}', _external=True))
     return jsonify({'success_list': files})
+
+@app.route('/api/pending_orders')
+def api_pending_orders():
+    # 미완료(대기/진행중) 주문 목록 반환
+    orders = Order.query.filter(Order.status.in_(['pending', 'processing'])).order_by(Order.order_date.desc()).all()
+    result = []
+    for order in orders:
+        result.append({
+            'id': order.id,
+            'customer_name': order.customer_name,
+            'order_date': order.order_date.isoformat(),
+            'status': order.status,
+            'total_amount': order.total_amount
+        })
+    return jsonify({'orders': result})
+
+@app.route('/api/recent_orders')
+def api_recent_orders():
+    # 최근 20개 주문 반환 (status, 상품 목록 포함)
+    orders = Order.query.order_by(Order.order_date.desc()).limit(20).all()
+    result = []
+    for order in orders:
+        items = []
+        for item in order.order_items:
+            product_name = ''
+            if hasattr(item, 'product') and item.product:
+                product_name = item.product.name
+            else:
+                # Fallback: product_id로 직접 조회
+                prod = Product.query.get(item.product_id)
+                if prod:
+                    product_name = prod.name
+            items.append({
+                'name': product_name,
+                'quantity': item.quantity,
+                'price': item.price
+            })
+        result.append({
+            'id': order.id,
+            'customer_name': order.customer_name,
+            'order_date': order.order_date.isoformat(),
+            'status': order.status,
+            'total_amount': order.total_amount,
+            'items': items
+        })
+    return jsonify({'orders': result})
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 

@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container mt-4">
     <div class="row">
-        <div class="col-md-8">
+        <div class="col-12 col-md-8 mb-3 mb-md-0">
             <div class="card">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0">
@@ -15,9 +15,9 @@
                 <div class="card-body">
                     {% if cart_items %}
                         {% for item in cart_items %}
-                        <div class="cart-item p-3 mb-3 bg-light rounded">
+                        <div class="cart-item p-3 mb-3 bg-light rounded" data-cart-id="{{ item.id }}">
                             <div class="row align-items-center">
-                                <div class="col-md-2">
+                                <div class="col-3 col-md-2">
                                     {% if item.image_url %}
                                         <div class="image-container" style="width: 60px; height: 60px;">
                                             <img src="{{ item.image_url }}" alt="{{ item.name }}" class="product-img">
@@ -30,24 +30,35 @@
                                         </div>
                                     {% endif %}
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-5 col-md-4">
                                     <h6 class="mb-1">{{ item.name }}</h6>
                                     <small class="text-muted">{{ item.category }}</small>
                                 </div>
-                                <div class="col-md-2">
-                                    <span class="badge bg-primary">{{ item.price:, }}원</span>
+                                <div class="col-4 col-md-2">
+                                    <span class="badge bg-primary cart-price" data-price="{{ item.price }}">{{ "{:,.0f}".format(item.price) }}원</span>
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-12 col-md-2 mt-2 mt-md-0">
                                     <div class="input-group input-group-sm">
                                         <button class="btn btn-outline-secondary" onclick="updateQuantity({{ item.id }}, -1)">-</button>
-                                        <input type="number" class="form-control text-center" value="{{ item.quantity }}" min="1" readonly>
+                                        <input type="number" class="form-control text-center cart-qty-input" value="{{ item.quantity }}" min="1" readonly data-price="{{ item.price }}">
                                         <button class="btn btn-outline-secondary" onclick="updateQuantity({{ item.id }}, 1)">+</button>
                                     </div>
                                 </div>
-                                <div class="col-md-2 text-end">
+                                <div class="col-12 col-md-2 text-end mt-2 mt-md-0 d-none d-md-block">
                                     <button class="btn btn-danger btn-sm" onclick="removeFromCart({{ item.id }})">
                                         <i class="fas fa-trash"></i>
                                     </button>
+                                </div>
+                                <div class="col-12 col-md-2 text-end mt-2 mt-md-0 d-none d-md-block">
+                                    <span class="cart-total" data-price="{{ item.price }}">{{ "{:,.0f}".format(item.price * item.quantity) }}원</span>
+                                </div>
+                                <div class="col-12 d-flex d-md-none align-items-center mt-2">
+                                    <div class="d-flex align-items-center justify-content-between w-100">
+                                        <button class="btn btn-danger btn-sm" onclick="removeFromCart({{ item.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <span class="cart-total" data-price="{{ item.price }}">{{ "{:,.0f}".format(item.price * item.quantity) }}원</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -65,8 +76,8 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
+        <div class="col-12 col-md-4">
+            <div class="card mb-5 mb-md-0">
                 <div class="card-header bg-success text-white">
                     <h5 class="mb-0">
                         <i class="fas fa-calculator me-2"></i>주문 요약
@@ -75,14 +86,15 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between mb-2">
                         <span>상품 수량:</span>
-                        <span>{{ total_quantity }}개</span>
+                        <span id="cart-total-quantity">{{ total_quantity }}개</span>
                     </div>
                     <div class="d-flex justify-content-between mb-3">
                         <strong>총 금액:</strong>
-                        <strong class="text-success">{{ total_amount:, }}원</strong>
+                        <strong class="text-success" id="cart-total-amount">{{ "{:,.0f}".format(total_amount) }}원</strong>
                     </div>
                     {% if cart_items %}
-                        <button class="btn btn-success w-100" onclick="proceedToPayment()">
+                        <!-- PC/태블릿: 기존 버튼 -->
+                        <button class="btn btn-success w-100 d-none d-md-block" onclick="proceedToPayment()">
                             <i class="fas fa-credit-card me-2"></i>결제하기
                         </button>
                     {% endif %}
@@ -90,6 +102,13 @@
             </div>
         </div>
     </div>
+    <!-- 모바일 하단 고정 결제 버튼 -->
+    {% if cart_items %}
+    <a href="javascript:proceedToPayment();" class="btn btn-success d-block d-md-none fixed-bottom w-100 py-3 text-center" style="z-index: 1050; font-size: 1.2rem; border-radius: 0; box-shadow: 0 -2px 12px rgba(0,0,0,0.08);">
+        <i class="fas fa-credit-card me-2"></i>결제하기
+    </a>
+    <div class="d-block d-md-none" style="height: 64px;"></div>
+    {% endif %}
 </div>
 {% endblock %}
 
@@ -106,7 +125,7 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                window.location.reload(); // 장바구니 페이지 새로고침
+                updateCartItemDOM(productId, change);
             } else {
                 alert('수량 업데이트 실패: ' + data.message);
             }
@@ -115,6 +134,35 @@
             console.error('Error:', error);
             alert('수량 업데이트 중 오류가 발생했습니다.');
         });
+    }
+
+    function updateCartItemDOM(productId, change) {
+        const row = document.querySelector(`[data-cart-id='${productId}']`);
+        if (!row) return;
+        const qtyInput = row.querySelector('.cart-qty-input');
+        let qty = parseInt(qtyInput.value) + change;
+        if (qty <= 0) {
+            row.remove();
+        } else {
+            qtyInput.value = qty;
+            const price = parseInt(row.querySelector('.cart-price').dataset.price);
+            row.querySelector('.cart-total').textContent = (price * qty).toLocaleString() + '원';
+        }
+        recalcCartSummary();
+    }
+
+    function recalcCartSummary() {
+        let totalQty = 0;
+        let totalAmt = 0;
+        document.querySelectorAll('.cart-qty-input').forEach(input => {
+            const qty = parseInt(input.value);
+            totalQty += qty;
+            const row = input.closest('[data-cart-id]');
+            const price = parseInt(row.querySelector('.cart-price').dataset.price);
+            totalAmt += price * qty;
+        });
+        document.getElementById('cart-total-quantity').textContent = totalQty + '개';
+        document.getElementById('cart-total-amount').textContent = totalAmt.toLocaleString() + '원';
     }
 
     function removeFromCart(productId) {
@@ -131,7 +179,9 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                window.location.reload(); // 장바구니 페이지 새로고침
+                const row = document.querySelector(`[data-cart-id='${productId}']`);
+                if (row) row.remove();
+                recalcCartSummary();
             } else {
                 alert('상품 삭제 실패: ' + data.message);
             }
