@@ -17,6 +17,7 @@ from io import BytesIO
 import base64
 import time
 import random
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # .env 파일 로드
 load_dotenv()
@@ -47,6 +48,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 AUDIO_FOLDER = 'static/audio'
 ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a'}
 app.config['AUDIO_FOLDER'] = AUDIO_FOLDER
+
 
 # 업로드 폴더 생성
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -1241,6 +1243,8 @@ def audio_success_list():
             if fname.lower().startswith('success') and fname.lower().endswith(allowed_exts):
                 files.append(url_for('static', filename=f'audio/{fname}', _external=True))
     return jsonify({'success_list': files})
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
