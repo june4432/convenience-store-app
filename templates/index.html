@@ -1136,7 +1136,10 @@ function processPaymentSuccess(paymentKey, orderId, amount) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showPaymentResult(true, '결제가 완료되었습니다.', orderId);
+            // 모든 backdrop 강제 제거
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            showPaymentResult(true, 'QR코드 결제가 완료되었습니다.', data.order_id);
+            clearCart();
         } else {
             showPaymentResult(false, data.message || '결제 처리 중 오류가 발생했습니다.');
         }
@@ -1633,13 +1636,18 @@ function startCustomPayPolling(orderId, modal) {
                     clearInterval(custompayPolling);
                     // 모달 닫기
                     modal.hide();
-                    // 모달이 완전히 닫힌 후 결제완료 모달 띄우기
+                    // 모달이 완전히 닫힌 후 결제완료 모달 띄우기 (중복 방지)
                     const custompayModalEl = document.getElementById('custompayModal');
                     const handler = function() {
-                        showPaymentResult(true, 'QR코드 결제가 완료되었습니다.', data.order_id);
-                        clearCart();
+                        setTimeout(() => {
+                            // 모든 backdrop 강제 제거
+                            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                            showPaymentResult(true, 'QR코드 결제가 완료되었습니다.', data.order_id);
+                            clearCart();
+                        }, 50);
                         custompayModalEl.removeEventListener('hidden.bs.modal', handler);
                     };
+                    custompayModalEl.removeEventListener('hidden.bs.modal', handler);
                     custompayModalEl.addEventListener('hidden.bs.modal', handler);
                 }
             });
