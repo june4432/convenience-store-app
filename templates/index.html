@@ -1641,9 +1641,9 @@ function startCustomPayPolling(orderId, modal) {
             .then(data => {
                 if (data.status === 'completed') {
                     clearInterval(custompayPolling);
-                    statusDiv.innerHTML = '<span class="text-success fw-bold">결제 완료!</span>';
-                    showToast('커스텀 결제가 완료되었습니다!', 'success');
-                    setTimeout(() => { modal.hide(); clearCart(); }, 1500);
+                    modal.hide();
+                    showPaymentResult(true, '커스텀 결제가 완료되었습니다.', data.order_id);
+                    clearCart();
                 }
             });
     }, 1200);
