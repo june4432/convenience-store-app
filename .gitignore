@@ -1,4 +1,4 @@
-# ȯ�溯�� ����
+# 환경변수
 .env
 
 # Python
@@ -23,19 +23,19 @@ wheels/
 .installed.cfg
 *.egg
 
-# ����ȯ��
+# 가상환경  
 venv/
 env/
 ENV/
 env.bak/
 venv.bak/
 
-# �����ͺ��̽�
+# 데이터베이스
 *.db
 *.sqlite3
 instance/
 
-# ���ε�� ����
+# 업로드 파일
 static/uploads/
 static/audio/*
 !static/audio/.gitkeep
