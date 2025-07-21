@@ -15,6 +15,8 @@ import subprocess
 import qrcode
 from io import BytesIO
 import base64
+import time
+import random
 
 # .env 파일 로드
 load_dotenv()
@@ -743,9 +745,9 @@ def save_image(file):
 
 def save_audio(file):
     if file and allowed_audio_file(file.filename):
-        filename = secure_filename(file.filename)
-        # 고유한 파일명 생성
-        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        # success_업로드시간_난수.확장자 형식
+        unique_filename = f"success_{int(time.time())}_{random.randint(1000,9999)}.{ext}"
         filepath = os.path.join(app.config['AUDIO_FOLDER'], unique_filename)
         file.save(filepath)
         return f'/static/audio/{unique_filename}'
