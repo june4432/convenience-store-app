@@ -901,24 +901,15 @@ function initializeAudioContext() {
 function playSuccessSound() {
     console.log('성공 소리 재생 시작');
     // 먼저 업로드된 오디오 파일이 있는지 확인
-    fetch('/admin/audio/settings')
-        .then(response => response.json())
+    fetch('/audio/success_list')
+        .then(res => res.json())
         .then(data => {
-            console.log('오디오 설정 조회 결과:', data);
-            if (data.success_audio_url) {
-                console.log('업로드된 성공 소리 파일 재생:', data.success_audio_url);
-                // 업로드된 오디오 파일 재생
-                playAudioFile(data.success_audio_url);
+            if (data.success_list && data.success_list.length > 0) {
+                const randomUrl = data.success_list[Math.floor(Math.random() * data.success_list.length)];
+                playAudioFile(randomUrl);
             } else {
-                console.log('업로드된 성공 소리 없음, 기본 비프음 재생');
-                // 기본 비프음 재생
                 playBeepSound(800, 200, 'sine');
             }
-        })
-        .catch(error => {
-            console.log('오디오 설정 조회 실패:', error);
-            // 기본 비프음 재생
-            playBeepSound(800, 200, 'sine');
         });
 }
 

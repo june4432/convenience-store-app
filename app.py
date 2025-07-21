@@ -1227,5 +1227,17 @@ def add_security_headers(response):
     )
     return response
 
+@app.route('/audio/success_list')
+def audio_success_list():
+    """static/audio/ 폴더 내 success(성공) 관련 오디오 파일 목록 반환"""
+    audio_folder = os.path.join(app.root_path, 'static', 'audio')
+    allowed_exts = ('.mp3', '.wav', '.ogg', '.m4a')
+    files = []
+    if os.path.exists(audio_folder):
+        for fname in os.listdir(audio_folder):
+            if fname.lower().startswith('success') and fname.lower().endswith(allowed_exts):
+                files.append(url_for('static', filename=f'audio/{fname}', _external=True))
+    return jsonify({'success_list': files})
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
