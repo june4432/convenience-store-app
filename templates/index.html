@@ -1634,16 +1634,15 @@ function startCustomPayPolling(orderId, modal) {
             .then(data => {
                 if (data.status === 'completed') {
                     clearInterval(custompayPolling);
-                    // 모달 닫기
                     modal.hide();
-                    // 모달이 완전히 닫힌 후 결제완료 모달 띄우기 (중복 방지)
                     const custompayModalEl = document.getElementById('custompayModal');
                     const handler = function() {
                         setTimeout(() => {
-                            // 모든 backdrop 강제 제거
                             document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
                             showPaymentResult(true, 'QR코드 결제가 완료되었습니다.', data.order_id);
                             clearCart();
+                            // 완료된 주문 ID 기록
+                            lastCompletedOrderIds.add(data.order_id);
                         }, 50);
                         custompayModalEl.removeEventListener('hidden.bs.modal', handler);
                     };
@@ -1663,8 +1662,12 @@ function pollRecentOrders() {
                     const prevStatus = lastOrderStatusMap[order.id];
                     if (initialOrderStatusLoaded) {
                         if ((prevStatus === 'pending' || prevStatus === 'processing') && order.status === 'completed') {
-                            showPaymentResult(true, '모바일 주문이 들어왔습니다!', order.id, order.items);
-                            setTimeout(() => { delete lastOrderStatusMap[order.id]; }, 60000);
+                            // 이미 완료 모달을 띄운 주문은 다시 띄우지 않음
+                            if (!lastCompletedOrderIds.has(order.id)) {
+                                showPaymentResult(true, '모바일 주문이 들어왔습니다!', order.id, order.items);
+                                setTimeout(() => { delete lastOrderStatusMap[order.id]; }, 60000);
+                                lastCompletedOrderIds.add(order.id);
+                            }
                         }
                     }
                     lastOrderStatusMap[order.id] = order.status;
