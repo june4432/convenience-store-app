@@ -210,144 +210,67 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function main() {
     const button = document.getElementById("payment-button");
-    
-    // 토스페이먼츠 초기화 (결제창 SDK 사용)
     const clientKey = "{{ client_key }}";
     const customerKey = "JuNm6zJ0Afr7xUwStZAwn";
     const tossPayments = TossPayments(clientKey);
-    
-    // 결제창 인스턴스 생성
     const payment = tossPayments.payment({ customerKey });
-    
-    // 전역 변수에 저장
     globalPayment = payment;
-    
-    // 결제하기 버튼 활성화
     button.disabled = false;
-    
-    // 결제하기 버튼 클릭 이벤트
     button.addEventListener("click", async function() {
-        // 약관 동의 확인
-        const agreementCheck = document.getElementById('agreement-check');
-        if (!agreementCheck.checked) {
-            alert('이용약관에 동의해주세요.');
-            return;
+        // 개인정보 입력 및 약관동의 없이 바로 결제 요청
+        // 할인 적용된 최종 결제금액 계산
+        let total = 0;
+        for (const item of cartItems) {
+            total += item.total;
         }
-        
-        // 고객 정보 입력 모달 표시
-        showCustomerInfoModal();
-    });
-}
-
-function showCustomerInfoModal() {
-    const modalHtml = `
-        <div class="modal fade" id="customerInfoModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">고객 정보 입력</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="customerForm">
-                            <div class="mb-3">
-                                <label for="customer_name" class="form-label">이름 *</label>
-                                <input type="text" class="form-control" id="customer_name" name="customer_name" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="customer_phone" class="form-label">전화번호 *</label>
-                                <input type="tel" class="form-control" id="customer_phone" name="customer_phone" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="customer_email" class="form-label">이메일</label>
-                                <input type="email" class="form-control" id="customer_email" name="customer_email">
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                        <button type="button" class="btn btn-primary" onclick="requestPayment()">결제 진행</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // 기존 모달 제거
-    const existingModal = document.getElementById('customerInfoModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // 새 모달 추가
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // 모달 표시
-    const modal = new bootstrap.Modal(document.getElementById('customerInfoModal'));
-    modal.show();
-}
-
-function requestPayment() {
-    if (!globalPayment) {
-        alert('결제 모듈이 초기화되지 않았습니다.');
-        return;
-    }
-    const form = document.getElementById('customerForm');
-    const formData = new FormData(form);
-    // 할인 적용된 최종 결제금액 계산
-    let total = 0;
-    for (const item of cartItems) {
-        total += item.total;
-    }
-    let discountAmount = 0;
-    if (window.currentCoupon) {
-        if (window.currentCoupon.type === 'percent') {
-            discountAmount = Math.floor(total * (window.currentCoupon.discount / 100));
-        } else {
-            discountAmount = Math.min(window.currentCoupon.discount, total);
+        let discountAmount = 0;
+        if (window.currentCoupon) {
+            if (window.currentCoupon.type === 'percent') {
+                discountAmount = Math.floor(total * (window.currentCoupon.discount / 100));
+            } else {
+                discountAmount = Math.min(window.currentCoupon.discount, total);
+            }
         }
-    }
-    const finalAmount = total - discountAmount;
-    formData.append('finalAmount', finalAmount);
-    formData.append('coupon', window.currentCoupon ? JSON.stringify(window.currentCoupon) : '');
-    // 결제 요청
-    fetch('/payment/request', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // 결제창 열기 (결제창 SDK 사용)
-            globalPayment.requestPayment({
-                method: "CARD", // 카드 및 간편결제
-                amount: {
-                    currency: "KRW",
-                    value: data.payment_data.amount.value
-                },
-                orderId: data.payment_data.orderId,
-                orderName: data.payment_data.orderName,
-                customerName: data.payment_data.customerName,
-                customerEmail: data.payment_data.customerEmail,
-                successUrl: data.payment_data.successUrl,
-                failUrl: data.payment_data.failUrl,
-                card: {
-                    useEscrow: false,
-                    flowMode: "DEFAULT",
-                    useCardPoint: false,
-                    useAppCardOnly: false,
-                },
-            });
-            // 모달 닫기
-            const modal = bootstrap.Modal.getInstance(document.getElementById('customerInfoModal'));
-            modal.hide();
-        } else {
-            alert('결제 요청에 실패했습니다: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('결제 요청 중 오류가 발생했습니다.');
+        const finalAmount = total - discountAmount;
+        // 서버에 결제 요청
+        fetch('/payment/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                finalAmount: finalAmount,
+                coupon: window.currentCoupon ? window.currentCoupon : null
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                globalPayment.requestPayment({
+                    method: "CARD",
+                    amount: {
+                        currency: "KRW",
+                        value: data.payment_data.amount.value
+                    },
+                    orderId: data.payment_data.orderId,
+                    orderName: data.payment_data.orderName,
+                    customerName: data.payment_data.customerName,
+                    customerEmail: data.payment_data.customerEmail,
+                    successUrl: data.payment_data.successUrl,
+                    failUrl: data.payment_data.failUrl,
+                    card: {
+                        useEscrow: false,
+                        flowMode: "DEFAULT",
+                        useCardPoint: false,
+                        useAppCardOnly: false,
+                    },
+                });
+            } else {
+                alert('결제 요청에 실패했습니다: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('결제 요청 중 오류가 발생했습니다.');
+        });
     });
 }
 

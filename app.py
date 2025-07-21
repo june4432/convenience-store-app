@@ -520,21 +520,10 @@ def payment_success():
 
 @app.route('/payment/fail', methods=['GET', 'POST'])
 def payment_fail():
-    """결제 실패 처리"""
     error_code = request.args.get('code')
     error_message = request.args.get('message')
-    
-    if request.method == 'POST':
-        return jsonify({
-            'success': False, 
-            'message': f'결제에 실패했습니다. (코드: {error_code}, 메시지: {error_message})'
-        })
-    else:
-        # GET 요청 시 메인화면으로 리다이렉트하면서 오류 정보 전달
-        return redirect(url_for('index', 
-            code=error_code,
-            message=error_message
-        ))
+    # 모바일/PC 구분 없이 안내 템플릿만 렌더 (JS에서 처리)
+    return render_template('payment_fail_popup.html', code=error_code, message=error_message)
 
 @app.route('/payment/widget')
 def payment_widget():
