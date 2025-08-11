@@ -15,6 +15,9 @@ import subprocess
 import qrcode
 from io import BytesIO
 import base64
+import time
+import random
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # .env 파일 로드
 load_dotenv()
@@ -45,6 +48,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 AUDIO_FOLDER = 'static/audio'
 ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a'}
 app.config['AUDIO_FOLDER'] = AUDIO_FOLDER
+
 
 # 업로드 폴더 생성
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -119,6 +123,7 @@ class Order(db.Model):
     
     # 관계 설정
     payments = db.relationship('Payment', backref='order', lazy=True)
+    order_items = db.relationship('OrderItem', backref='order', lazy=True)
 
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -245,9 +250,10 @@ def cart():
     total_amount = 0
     total_quantity = 0
     
-    for product_id, quantity in session['cart'].items():
+    for product_id, item_data in session['cart'].items():
         product = Product.query.get(int(product_id))
-        if product:
+        if product and isinstance(item_data, dict):
+            quantity = item_data.get('quantity', 1)
             item_total = product.price * quantity
             cart_items.append({
                 'id': product.id,
@@ -273,12 +279,15 @@ def update_cart_quantity():
         session['cart'] = {}
 
     if product_id in session['cart']:
-        session['cart'][product_id] += change
-        if session['cart'][product_id] <= 0:
-            del session['cart'][product_id]
-        session.modified = True # 세션 변경 사항 저장
-        return jsonify({'success': True})
-    
+        item = session['cart'][product_id]
+        if isinstance(item, dict):
+            item['quantity'] = item.get('quantity', 1) + change
+            if item['quantity'] <= 0:
+                del session['cart'][product_id]
+            else:
+                session['cart'][product_id] = item
+            session.modified = True
+            return jsonify({'success': True})
     return jsonify({'success': False, 'message': '장바구니에 없는 상품입니다.'})
 
 @app.route('/remove_from_cart', methods=['POST'])
@@ -381,143 +390,24 @@ def admin_login():
         password = request.form.get('password')
         if password == app.config['ADMIN_PASSWORD']:
             session['admin_logged_in'] = True
-            flash('관리자로 로그인되었습니다.', 'success')
             return redirect(url_for('admin'))
         else:
             flash('비밀번호가 올바르지 않습니다.', 'error')
-    
-    # 템플릿 파일이 없을 경우를 대비해 직접 HTML 반환
-    try:
-        return render_template('admin_login.html')
-    except:
-        # 임시 HTML 반환
-        html_content = '''
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>관리자 로그인 - 편의점</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .login-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            padding: 2rem;
-            width: 100%;
-            max-width: 400px;
-        }
-        .login-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .login-header i {
-            font-size: 3rem;
-            color: #667eea;
-            margin-bottom: 1rem;
-        }
-        .form-control {
-            border-radius: 10px;
-            border: 2px solid #e9ecef;
-            padding: 0.75rem 1rem;
-            transition: all 0.3s ease;
-        }
-        .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        }
-        .btn-login {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 10px;
-            padding: 0.75rem 2rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        .back-link {
-            text-align: center;
-            margin-top: 1rem;
-        }
-        .back-link a {
-            color: #667eea;
-            text-decoration: none;
-        }
-        .back-link a:hover {
-            text-decoration: underline;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-6 col-lg-4">
-                <div class="login-card">
-                    <div class="login-header">
-                        <i class="fas fa-user-shield"></i>
-                        <h3>관리자 로그인</h3>
-                        <p class="text-muted">관리자 비밀번호를 입력하세요</p>
-                    </div>
-                    
-                    <form method="POST">
-                        <div class="mb-3">
-                            <label for="password" class="form-label">비밀번호</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-lock"></i>
-                                </span>
-                                <input type="password" class="form-control" id="password" name="password" required>
-                            </div>
-                        </div>
-                        
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-login">
-                                <i class="fas fa-sign-in-alt me-2"></i>로그인
-                            </button>
-                        </div>
-                    </form>
-                    
-                    <div class="back-link">
-                        <a href="/">
-                            <i class="fas fa-arrow-left me-1"></i>메인 페이지로 돌아가기
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
-        '''
-        return html_content
+    return render_template('admin_login.html')
 
 @app.route('/admin/logout')
 def admin_logout():
-    """관리자 로그아웃"""
     session.pop('admin_logged_in', None)
-    flash('로그아웃되었습니다.', 'info')
     return redirect(url_for('index'))
 
 @app.route('/admin')
 @admin_required
 def admin():
     """관리자 페이지"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
     products = Product.query.all()
-    orders = Order.query.order_by(Order.order_date.desc()).all()
+    orders = Order.query.order_by(Order.order_date.desc()).paginate(page=page, per_page=per_page, error_out=False)
     categories = Category.query.order_by(Category.name).all()
     return render_template('admin.html', products=products, orders=orders, categories=categories)
 
@@ -543,58 +433,74 @@ def request_payment():
         # 장바구니 정보 가져오기 (새로운 형식)
         cart_items = []
         total = 0
-        
         for product_id, item_data in session['cart'].items():
             product = Product.query.get(int(product_id))
             if product:
                 quantity = item_data.get('quantity', 1)
                 item_total = product.price * quantity
                 cart_items.append({
-                    'product': product,
+                    'product': {
+                        'id': product.id,
+                        'name': product.name,
+                        'price': product.price,
+                        'image_url': product.image_url,
+                        'category': product.category,
+                        'description': product.description,
+                    },
                     'quantity': quantity,
                     'total': item_total
                 })
                 total += item_total
-        
         if not cart_items:
             return jsonify({'error': '장바구니에 유효한 상품이 없습니다.'}), 400
+
         
         # 주문 생성 시, 스캔된 고객 또는 로그인한 사용자 ID를 사용
         user_id_for_order = session.get('scanned_customer_id') or session.get('user_id')
+
+        # 할인 적용된 금액/쿠폰 정보 처리
+        final_amount = request.form.get('finalAmount')
+        coupon_info = request.form.get('coupon')
+        try:
+            final_amount = int(final_amount) if final_amount else total
+        except Exception:
+            final_amount = total
+        # 주문 생성
+
         order = Order(
             user_id=user_id_for_order,
             customer_name=request.form.get('customer_name', '고객'),
             customer_phone=request.form.get('customer_phone', '000-0000-0000'),
-            total_amount=total
+            total_amount=final_amount
         )
         db.session.add(order)
         db.session.flush()
-        
         # 주문 아이템 생성
         for item in cart_items:
             order_item = OrderItem(
                 order_id=order.id,
-                product_id=item['product'].id,
+                product_id=item['product']['id'],
                 quantity=item['quantity'],
-                price=item['product'].price
+                price=item['product']['price']
             )
             db.session.add(order_item)
-        
         # 결제 정보 생성
         payment_key = create_payment_key()
         payment = Payment(
             order_id=order.id,
             payment_key=payment_key,
-            amount=total
+            amount=final_amount
         )
         db.session.add(payment)
         db.session.commit()
-        
+        # 쿠폰 정보 로그(또는 저장)
+        if coupon_info:
+            app.logger.info(f'쿠폰 적용: {coupon_info}')
         # 토스페이먼츠 결제 요청 데이터
         payment_data = {
             "amount": {
                 "currency": "KRW",
-                "value": int(total)
+                "value": int(final_amount)
             },
             "orderId": f"order_{order.id}_{payment_key[:8]}",
             "orderName": get_order_items_text(cart_items),
@@ -604,7 +510,6 @@ def request_payment():
             "failUrl": url_for('payment_fail', _external=True),
             "windowTarget": "iframe"
         }
-        
         return jsonify({
             'success': True,
             'payment_data': payment_data,
@@ -755,45 +660,42 @@ def payment_success():
 
 @app.route('/payment/fail', methods=['GET', 'POST'])
 def payment_fail():
-    """결제 실패 처리"""
     error_code = request.args.get('code')
     error_message = request.args.get('message')
-    
-    if request.method == 'POST':
-        return jsonify({
-            'success': False, 
-            'message': f'결제에 실패했습니다. (코드: {error_code}, 메시지: {error_message})'
-        })
-    else:
-        # GET 요청 시 메인화면으로 리다이렉트하면서 오류 정보 전달
-        return redirect(url_for('index', 
-            code=error_code,
-            message=error_message
-        ))
+    # 모바일/PC 구분 없이 안내 템플릿만 렌더 (JS에서 처리)
+    return render_template('payment_fail_popup.html', code=error_code, message=error_message)
 
 @app.route('/payment/widget')
 def payment_widget():
     """결제위젯 페이지"""
     if 'cart' not in session or not session['cart']:
         return redirect(url_for('cart'))
-    
     cart_items = []
     total = 0
-    
-    for product_id, quantity in session['cart'].items():
+    total_quantity = 0
+    for product_id, item_data in session['cart'].items():
         product = Product.query.get(int(product_id))
-        if product:
+        if product and isinstance(item_data, dict):
+            quantity = item_data.get('quantity', 1)
             item_total = product.price * quantity
             cart_items.append({
-                'product': product,
+                'product': {
+                    'id': product.id,
+                    'name': product.name,
+                    'price': product.price,
+                    'image_url': product.image_url,
+                    'category': product.category,
+                    'description': product.description,
+                },
                 'quantity': quantity,
                 'total': item_total
             })
             total += item_total
-    
+            total_quantity += quantity
     return render_template('payment_widget.html', 
                          cart_items=cart_items, 
                          total=total,
+                         total_quantity=total_quantity,
                          client_key=app.config['TOSS_CLIENT_KEY'])
 
 # 토스페이먼츠 결제 관련 함수들
@@ -810,9 +712,9 @@ def create_payment_key():
 def get_order_items_text(cart_items):
     """주문 상품명 생성"""
     if len(cart_items) == 1:
-        return cart_items[0]['product'].name
+        return cart_items[0]['product']['name']
     else:
-        return f"{cart_items[0]['product'].name} 외 {len(cart_items)-1}건"
+        return f"{cart_items[0]['product']['name']} 외 {len(cart_items)-1}건"
 
 # 초기 데이터 생성
 def create_sample_data():
@@ -878,9 +780,9 @@ def save_image(file):
 
 def save_audio(file):
     if file and allowed_audio_file(file.filename):
-        filename = secure_filename(file.filename)
-        # 고유한 파일명 생성
-        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        # success_업로드시간_난수.확장자 형식
+        unique_filename = f"success_{int(time.time())}_{random.randint(1000,9999)}.{ext}"
         filepath = os.path.join(app.config['AUDIO_FOLDER'], unique_filename)
         file.save(filepath)
         return f'/static/audio/{unique_filename}'
@@ -1254,6 +1156,7 @@ def generate_lottery_qr():
     except Exception as e:
         return jsonify({'error': f'뽑기 QR코드 생성 실패: {str(e)}'}), 500
 
+
 @app.route('/generate_user_qr')
 @login_required
 def generate_user_qr():
@@ -1285,6 +1188,126 @@ def generate_user_qr():
 
     return send_file(buffer, mimetype='image/png')
 
+# === [커스텀 결제: 주문 생성 및 QR코드 반환] ===
+@app.route('/custompay/request', methods=['POST'])
+def custompay_request():
+    """주문 생성 및 결제 QR코드(결제 URL) 반환"""
+    if 'cart' not in session or not session['cart']:
+        return jsonify({'error': '장바구니가 비어있습니다.'}), 400
+    try:
+        # 쿠폰 정보 처리 (JSON 요청 지원)
+        coupon_info = None
+        if request.is_json:
+            data = request.get_json()
+            coupon_info = data.get('coupon')
+            if coupon_info:
+                session['custompay_coupon'] = coupon_info
+        else:
+            coupon_info = session.get('custompay_coupon')
+        # 장바구니 정보
+        cart_items = []
+        total = 0
+        for product_id, item_data in session['cart'].items():
+            product = Product.query.get(int(product_id))
+            if product:
+                quantity = item_data.get('quantity', 1)
+                item_total = product.price * quantity
+                cart_items.append({
+                    'product': {
+                        'id': product.id,
+                        'name': product.name,
+                        'price': product.price,
+                        'image_url': product.image_url,
+                        'category': product.category,
+                        'description': product.description,
+                    },
+                    'quantity': quantity,
+                    'total': item_total
+                })
+                total += item_total
+        if not cart_items:
+            return jsonify({'error': '장바구니에 유효한 상품이 없습니다.'}), 400
+        # 할인 적용
+        discount = 0
+        if coupon_info:
+            import json
+            try:
+                coupon = coupon_info if isinstance(coupon_info, dict) else json.loads(coupon_info)
+                if coupon.get('type') == 'coupon' and coupon.get('discount'):
+                    if coupon.get('discountType') == 'percent':
+                        discount = int(total * (coupon['discount'] / 100))
+                    else:
+                        discount = min(int(coupon['discount']), total)
+            except Exception as e:
+                app.logger.warning(f'쿠폰 파싱 오류: {e}')
+        final_amount = total - discount
+        # 주문 생성
+        order = Order(
+            customer_name=request.form.get('customer_name', '고객'),
+            customer_phone=request.form.get('customer_phone', '000-0000-0000'),
+            total_amount=final_amount
+        )
+        db.session.add(order)
+        db.session.flush()
+        # 주문 아이템 생성
+        for item in cart_items:
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=item['product']['id'],
+                quantity=item['quantity'],
+                price=item['product']['price']
+            )
+            db.session.add(order_item)
+        db.session.commit()
+        # 결제 URL 생성
+        pay_url = url_for('custompay_pay', order_id=order.id, _external=True)
+        # QR코드 생성
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(pay_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        return jsonify({
+            'success': True,
+            'order_id': order.id,
+            'pay_url': pay_url,
+            'qr_code': f'data:image/png;base64,{img_str}'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# === [커스텀 결제: 고객용 결제 페이지] ===
+@app.route('/custompay/pay/<int:order_id>', methods=['GET', 'POST'])
+def custompay_pay(order_id):
+    order = Order.query.get_or_404(order_id)
+    if request.method == 'POST':
+        return redirect(url_for('custompay_complete', order_id=order_id))
+    return render_template('custompay_pay.html', order=order)
+
+# === [커스텀 결제: 결제 완료 처리] ===
+@app.route('/custompay/complete/<int:order_id>', methods=['GET'])
+def custompay_complete(order_id):
+    order = Order.query.get_or_404(order_id)
+    order.status = 'completed'
+    db.session.commit()
+    session.pop('cart', None)  # 결제 완료 시 장바구니 비우기
+    return render_template('custompay_complete.html', order=order)
+
+# === [커스텀 결제: 결제 상태 조회] ===
+@app.route('/custompay/status/<int:order_id>', methods=['GET'])
+def custompay_status(order_id):
+    order = Order.query.get_or_404(order_id)
+    return jsonify({'order_id': order.id, 'status': order.status})
+
+
 # Content Security Policy 헤더 설정
 @app.after_request
 def add_security_headers(response):
@@ -1298,12 +1321,73 @@ def add_security_headers(response):
         "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
         "img-src 'self' data: blob: https:; "
+        "media-src 'self' data: blob: https:; "  # <-- 이 줄 추가!
         "connect-src 'self' https://api.tosspayments.com https://log.tosspayments.com "
         "https://event.tosspayments.com https://apigw-sandbox.tosspayments.com "
         "https://*.tosspayments.com; "
         "frame-src 'self' https://js.tosspayments.com https://*.tosspayments.com;"
     )
     return response
+
+@app.route('/audio/success_list')
+def audio_success_list():
+    """static/audio/ 폴더 내 success(성공) 관련 오디오 파일 목록 반환"""
+    audio_folder = os.path.join(app.root_path, 'static', 'audio')
+    allowed_exts = ('.mp3', '.wav', '.ogg', '.m4a')
+    files = []
+    if os.path.exists(audio_folder):
+        for fname in os.listdir(audio_folder):
+            if fname.lower().startswith('success') and fname.lower().endswith(allowed_exts):
+                files.append(url_for('static', filename=f'audio/{fname}', _external=True))
+    return jsonify({'success_list': files})
+
+@app.route('/api/pending_orders')
+def api_pending_orders():
+    # 미완료(대기/진행중) 주문 목록 반환
+    orders = Order.query.filter(Order.status.in_(['pending', 'processing'])).order_by(Order.order_date.desc()).all()
+    result = []
+    for order in orders:
+        result.append({
+            'id': order.id,
+            'customer_name': order.customer_name,
+            'order_date': order.order_date.isoformat(),
+            'status': order.status,
+            'total_amount': order.total_amount
+        })
+    return jsonify({'orders': result})
+
+@app.route('/api/recent_orders')
+def api_recent_orders():
+    # 최근 20개 주문 반환 (status, 상품 목록 포함)
+    orders = Order.query.order_by(Order.order_date.desc()).limit(20).all()
+    result = []
+    for order in orders:
+        items = []
+        for item in order.order_items:
+            product_name = ''
+            if hasattr(item, 'product') and item.product:
+                product_name = item.product.name
+            else:
+                # Fallback: product_id로 직접 조회
+                prod = Product.query.get(item.product_id)
+                if prod:
+                    product_name = prod.name
+            items.append({
+                'name': product_name,
+                'quantity': item.quantity,
+                'price': item.price
+            })
+        result.append({
+            'id': order.id,
+            'customer_name': order.customer_name,
+            'order_date': order.order_date.isoformat(),
+            'status': order.status,
+            'total_amount': order.total_amount,
+            'items': items
+        })
+    return jsonify({'orders': result})
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

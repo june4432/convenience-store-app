@@ -5,38 +5,43 @@
 {% block content %}
 <div class="container mt-4">
     <div class="row">
-        <div class="col-md-8">
-            <div class="card">
+        <div class="col-12 col-md-6 mb-3">
+            <div class="card h-100">
                 <div class="card-header">
                     <h5 class="mb-0">주문 상품</h5>
                 </div>
                 <div class="card-body">
                     {% for item in cart_items %}
                     <div class="row align-items-center mb-3 pb-3 border-bottom">
-                        <div class="col-md-2 text-center">
-                            <i class="fas fa-box fa-2x text-muted"></i>
+                        <div class="col-3 text-center">
+                            {% if item.product.image_url %}
+                                <div class="image-container" style="width: 60px; height: 60px;">
+                                    <img src="{{ item.product.image_url }}" alt="{{ item.product.name }}" class="product-img">
+                                </div>
+                            {% else %}
+                                <div class="image-container" style="width: 60px; height: 60px;">
+                                    <div class="product-icon">
+                                        <i class="fas fa-box fa-2x text-muted"></i>
+                                    </div>
+                                </div>
+                            {% endif %}
                         </div>
-                        <div class="col-md-4">
-                            <h6 class="mb-1">{{ item.product.name }}</h6>
-                            <small class="text-muted">{{ item.product.description }}</small>
+                        <div class="col-6">
+                            <div class="fw-bold">{{ item.product.name }}</div>
+                            <div class="text-muted small">{{ item.product.description }}</div>
                         </div>
-                        <div class="col-md-2 text-center">
-                            <span class="text-success fw-bold">₩{{ "{:,}".format(item.product.price) }}</span>
-                        </div>
-                        <div class="col-md-2 text-center">
-                            <span class="badge bg-secondary">{{ item.quantity }}개</span>
-                        </div>
-                        <div class="col-md-2 text-center">
-                            <span class="text-success fw-bold">₩{{ "{:,}".format(item.total) }}</span>
+                        <div class="col-3 text-end">
+                            <div class="text-success fw-bold">₩{{ "{:,.0f}".format(item.product.price) }}</div>
+                            <div class="badge bg-secondary my-1">{{ item.quantity }}개</div>
+                            <div class="fw-bold text-success mt-1">₩{{ "{:,.0f}".format(item.total) }}</div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-4">
-            <div class="card">
+        <div class="col-12 col-md-6 mb-3">
+            <div class="card h-100">
                 <div class="card-header">
                     <h5 class="mb-0">결제 정보</h5>
                 </div>
@@ -47,69 +52,48 @@
                     </div>
                     <div class="d-flex justify-content-between mb-3">
                         <span>총 수량:</span>
-                        <span class="fw-bold">
-                            {% set total_quantity = 0 %}
-                            {% for item in cart_items %}
-                                {% set total_quantity = total_quantity + item.quantity %}
-                            {% endfor %}
-                            {{ total_quantity }}개
-                        </span>
+                        <span class="fw-bold payment-total-quantity">{{ total_quantity }}개</span>
                     </div>
                     <hr>
                     <div class="d-flex justify-content-between mb-3">
                         <span class="h5">총 금액:</span>
-                        <span class="h5 text-success fw-bold">₩{{ "{:,}".format(total) }}</span>
+                        <span class="h5 text-success fw-bold payment-total-amount">₩{{ "{:,.0f}".format(total) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2 payment-coupon-row">
+                        <span>쿠폰 할인:</span>
+                        <span class="text-success fw-bold payment-coupon-amount">-0원 <small></small></span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3 payment-final-row">
+                        <span class="h5">최종 결제금액:</span>
+                        <span class="h5 text-success fw-bold payment-final-amount">₩{{ "{:,.0f}".format(total) }}</span>
+                    </div>
+                    <!-- QR코드 쿠폰 업로드 -->
+                    <div class="mt-4">
+                        <label for="qr-upload" class="form-label fw-bold">QR코드로 쿠폰 등록</label>
+                        <input type="file" id="qr-upload" accept="image/*" class="form-control mb-2">
+                        <button class="btn btn-outline-primary w-100 mb-2" id="qr-upload-btn" type="button">
+                            <i class="fas fa-qrcode me-1"></i>QR코드 이미지 업로드
+                        </button>
+                        <div id="qr-upload-result" class="text-center text-success small"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    
     <div class="row mt-4">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">결제 정보</h5>
-                </div>
-                <div class="card-body">
-                    <p class="mb-3">아래 버튼을 클릭하면 토스페이먼츠 결제창이 열립니다.</p>
-                    <p class="mb-3">결제창에서 다양한 결제 수단을 선택할 수 있습니다:</p>
-                    <ul class="mb-3">
-                        <li>💳 <strong>카드 결제</strong>: 신용카드, 체크카드</li>
-                        <li>📱 <strong>간편결제</strong>: 토스페이, 네이버페이, 카카오페이, 페이코 등</li>
-                        <li>🏦 <strong>계좌이체</strong>: 퀵계좌이체</li>
-                        <li>💰 <strong>가상계좌</strong>: 무통장입금</li>
-                        <li>📞 <strong>휴대폰 결제</strong>: 소액결제</li>
-                        <li>🎫 <strong>상품권</strong>: 문화상품권, 도서문화상품권, 게임문화상품권</li>
-                    </ul>
-                </div>
-            </div>
+        <div class="col-12 col-md-4 mb-2">
+            <a href="/custompay/pay" class="btn btn-warning btn-lg w-100">
+                <i class="fas fa-qrcode me-2" style="color: #212529;"></i>모바일로 결제하기
+            </a>
         </div>
-        
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">이용약관</h5>
-                </div>
-                <div class="card-body">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="agreement-check" required>
-                        <label class="form-check-label" for="agreement-check">
-                            <small>결제 진행 시 <a href="#" target="_blank">이용약관</a>에 동의하는 것으로 간주됩니다.</small>
-                        </label>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="row mt-4">
-        <div class="col text-center">
-            <button id="payment-button" class="btn btn-success btn-lg" disabled>
-                <i class="fas fa-credit-card"></i> 결제하기
+        <div class="col-12 col-md-4 mb-2">
+            <button id="payment-button" class="btn btn-primary btn-lg w-100">
+                <i class="fas fa-credit-card me-2" style="color: #fff;"></i>토스페이먼츠로 결제하기
             </button>
-            <a href="{{ url_for('cart') }}" class="btn btn-outline-secondary btn-lg ms-2">
-                <i class="fas fa-arrow-left"></i> 장바구니로 돌아가기
+        </div>
+        <div class="col-12 col-md-4 mb-2">
+            <a href="{{ url_for('cart') }}" class="btn btn-outline-secondary btn-lg w-100">
+                <i class="fas fa-arrow-left me-2"></i>장바구니로 돌아가기
             </a>
         </div>
     </div>
@@ -119,114 +103,149 @@
 {% block scripts %}
 <!-- 토스페이먼츠 SDK -->
 <script src="https://js.tosspayments.com/v2/standard"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
 <script>
-    // 전역 변수로 payment 저장
-    let globalPayment = null;
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        main();
-    });
-    
-    async function main() {
-        const button = document.getElementById("payment-button");
-        
-        // 토스페이먼츠 초기화 (결제창 SDK 사용)
-        const clientKey = "{{ client_key }}";
-        const customerKey = "JuNm6zJ0Afr7xUwStZAwn";
-        const tossPayments = TossPayments(clientKey);
-        
-        // 결제창 인스턴스 생성
-        const payment = tossPayments.payment({ customerKey });
-        
-        // 전역 변수에 저장
-        globalPayment = payment;
-        
-        // 결제하기 버튼 활성화
-        button.disabled = false;
-        
-        // 결제하기 버튼 클릭 이벤트
-        button.addEventListener("click", async function() {
-            // 약관 동의 확인
-            const agreementCheck = document.getElementById('agreement-check');
-            if (!agreementCheck.checked) {
-                alert('이용약관에 동의해주세요.');
-                return;
-            }
-            
-            // 고객 정보 입력 모달 표시
-            showCustomerInfoModal();
+const cartItems = ({{ cart_items|tojson|safe }});
+const cartTotal = ({{ total|tojson|safe }});
+const cartTotalQuantity = ({{ total_quantity|tojson|safe }});
+// 전역 변수로 payment 저장
+let globalPayment = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    main();
+    // QR코드 결제 버튼 이벤트
+    const qrPayBtn = document.querySelector('a.btn.btn-warning');
+    if (qrPayBtn) {
+        qrPayBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            // 주문 생성 요청 (쿠폰 정보 포함)
+            fetch('/custompay/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ coupon: window.currentCoupon || null })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.order_id) {
+                    window.location.href = `/custompay/pay/${data.order_id}`;
+                } else {
+                    alert('QR코드 결제 주문 생성 실패: ' + (data.error || '서버 오류'));
+                }
+            })
+            .catch(() => {
+                alert('QR코드 결제 주문 생성 중 오류가 발생했습니다.');
+            });
         });
     }
-    
-    function showCustomerInfoModal() {
-        const modalHtml = `
-            <div class="modal fade" id="customerInfoModal" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">고객 정보 입력</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <form id="customerForm">
-                                <div class="mb-3">
-                                    <label for="customer_name" class="form-label">이름 *</label>
-                                    <input type="text" class="form-control" id="customer_name" name="customer_name" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="customer_phone" class="form-label">전화번호 *</label>
-                                    <input type="tel" class="form-control" id="customer_phone" name="customer_phone" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="customer_email" class="form-label">이메일</label>
-                                    <input type="email" class="form-control" id="customer_email" name="customer_email">
-                                </div>
-                            </form>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                            <button type="button" class="btn btn-primary" onclick="requestPayment()">결제 진행</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // 기존 모달 제거
-        const existingModal = document.getElementById('customerInfoModal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-        
-        // 새 모달 추가
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
-        // 모달 표시
-        const modal = new bootstrap.Modal(document.getElementById('customerInfoModal'));
-        modal.show();
-    }
-    
-    function requestPayment() {
-        if (!globalPayment) {
-            alert('결제 모듈이 초기화되지 않았습니다.');
+    // QR코드 이미지 업로드 이벤트
+    document.getElementById('qr-upload-btn').addEventListener('click', function() {
+        const fileInput = document.getElementById('qr-upload');
+        const resultDiv = document.getElementById('qr-upload-result');
+        resultDiv.textContent = '';
+        if (!fileInput.files || fileInput.files.length === 0) {
+            resultDiv.textContent = '이미지 파일을 선택하세요.';
+            resultDiv.className = 'text-danger small text-center';
             return;
         }
-        
-        const form = document.getElementById('customerForm');
-        const formData = new FormData(form);
-        
-        // 결제 요청
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                // canvas에 이미지 그리기
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, img.width, img.height);
+                const imageData = ctx.getImageData(0, 0, img.width, img.height);
+                const code = jsQR(imageData.data, img.width, img.height);
+                if (code && code.data) {
+                    let couponData = null;
+                    try {
+                        couponData = JSON.parse(code.data.trim());
+                    } catch (err) {
+                        resultDiv.textContent = 'QR코드 데이터 파싱 실패: ' + err;
+                        resultDiv.className = 'text-danger small text-center';
+                        console.error('JSON.parse 에러:', err, code.data);
+                        return;
+                    }
+                    // 이후 로직은 별도 try-catch로 감싼다
+                    try {
+                        if (couponData.type === 'coupon' && couponData.discount) {
+                            // 실제 쿠폰 적용
+                            window.currentCoupon = {
+                                code: couponData.code || 'QR쿠폰',
+                                discount: couponData.discount,
+                                type: couponData.discountType || 'percent',
+                                description: couponData.description || `${couponData.discount}${couponData.discountType === 'fixed' ? '원' : '%'} 할인 쿠폰`
+                            };
+                            updatePaymentWidgetCouponUI();
+                            resultDiv.textContent = `쿠폰이 적용되었습니다! ${couponData.discount}${couponData.discountType === 'fixed' ? '원' : '%'} 할인`;
+                            resultDiv.className = 'text-success small text-center';
+                        } else {
+                            resultDiv.textContent = '유효하지 않은 쿠폰 QR코드입니다.';
+                            resultDiv.className = 'text-danger small text-center';
+                        }
+                    } catch (err2) {
+                        resultDiv.textContent = '쿠폰 적용 중 오류: ' + err2;
+                        resultDiv.className = 'text-danger small text-center';
+                        console.error('쿠폰 적용 로직 에러:', err2, couponData);
+                    }
+                } else {
+                    resultDiv.textContent = 'QR코드를 인식하지 못했습니다.';
+                    resultDiv.className = 'text-danger small text-center';
+                }
+            };
+            img.onerror = function() {
+                resultDiv.textContent = '이미지 로드 실패';
+                resultDiv.className = 'text-danger small text-center';
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+});
+
+async function main() {
+    const button = document.getElementById("payment-button");
+    const clientKey = "{{ client_key }}";
+    const customerKey = "JuNm6zJ0Afr7xUwStZAwn";
+    const tossPayments = TossPayments(clientKey);
+    const payment = tossPayments.payment({ customerKey });
+    globalPayment = payment;
+    button.disabled = false;
+    button.addEventListener("click", async function() {
+        // 개인정보 입력 및 약관동의 없이 바로 결제 요청
+        // 할인 적용된 최종 결제금액 계산
+        let total = 0;
+        for (const item of cartItems) {
+            total += item.total;
+        }
+        let discountAmount = 0;
+        if (window.currentCoupon) {
+            if (window.currentCoupon.type === 'percent') {
+                discountAmount = Math.floor(total * (window.currentCoupon.discount / 100));
+            } else {
+                discountAmount = Math.min(window.currentCoupon.discount, total);
+            }
+        }
+        const finalAmount = total - discountAmount;
+        // 서버에 결제 요청
         fetch('/payment/request', {
             method: 'POST',
-            body: formData
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                finalAmount: finalAmount,
+                coupon: window.currentCoupon ? window.currentCoupon : null
+            })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // 결제창 열기 (결제창 SDK 사용)
                 globalPayment.requestPayment({
-                    method: "CARD", // 카드 및 간편결제
+                    method: "CARD",
                     amount: {
                         currency: "KRW",
                         value: data.payment_data.amount.value
@@ -237,18 +256,13 @@
                     customerEmail: data.payment_data.customerEmail,
                     successUrl: data.payment_data.successUrl,
                     failUrl: data.payment_data.failUrl,
-                    // 카드 결제에 필요한 정보
                     card: {
                         useEscrow: false,
-                        flowMode: "DEFAULT", // 통합결제창 여는 옵션
+                        flowMode: "DEFAULT",
                         useCardPoint: false,
                         useAppCardOnly: false,
                     },
                 });
-                
-                // 모달 닫기
-                const modal = bootstrap.Modal.getInstance(document.getElementById('customerInfoModal'));
-                modal.hide();
             } else {
                 alert('결제 요청에 실패했습니다: ' + data.error);
             }
@@ -257,6 +271,46 @@
             console.error('Error:', error);
             alert('결제 요청 중 오류가 발생했습니다.');
         });
+    });
+}
+
+function updatePaymentWidgetCouponUI() {
+    // 결제정보 카드만 선택 (두 번째 .card-body)
+    const cardBodies = document.querySelectorAll('.card-body');
+    const cardBody = cardBodies.length > 1 ? cardBodies[1] : cardBodies[0];
+    // 총수량, 총금액, 할인, 최종금액 영역 찾기
+    const totalQuantitySpan = cardBody.querySelector('.payment-total-quantity');
+    const totalAmountSpan = cardBody.querySelector('.payment-total-amount');
+    const couponAmountSpan = cardBody.querySelector('.payment-coupon-amount');
+    const finalAmountSpan = cardBody.querySelector('.payment-final-amount');
+    // cartItems, cartTotal, cartTotalQuantity를 기반으로 계산
+    let total = 0;
+    let totalQuantity = 0;
+    for (const item of cartItems) {
+        total += item.total;
+        totalQuantity += item.quantity;
     }
+    let discountAmount = 0;
+    let discountInfo = '';
+    console.log('cartItems:', cartItems);
+    console.log('window.currentCoupon:', window.currentCoupon);
+    if (window.currentCoupon) {
+        if (window.currentCoupon.type === 'percent') {
+            discountAmount = Math.floor(total * (window.currentCoupon.discount / 100));
+            discountInfo = `${window.currentCoupon.discount}% 할인`;
+        } else {
+            discountAmount = Math.min(window.currentCoupon.discount, total);
+            discountInfo = `${window.currentCoupon.discount.toLocaleString()}원 할인`;
+        }
+    }
+    console.log('total:', total, 'discountAmount:', discountAmount);
+    const finalAmount = total - discountAmount;
+    // 총수량/총금액 UI 갱신
+    if (totalQuantitySpan) totalQuantitySpan.textContent = totalQuantity + '개';
+    if (totalAmountSpan) totalAmountSpan.textContent = '₩' + total.toLocaleString();
+    // 할인/최종금액 UI 갱신
+    if (couponAmountSpan) couponAmountSpan.innerHTML = `-${discountAmount.toLocaleString()}원 <small>${discountInfo}</small>`;
+    if (finalAmountSpan) finalAmountSpan.textContent = '₩' + finalAmount.toLocaleString();
+}
 </script>
 {% endblock %} 
