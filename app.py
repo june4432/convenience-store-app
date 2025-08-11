@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone, timedelta
 import os
@@ -70,6 +70,15 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('로그인이 필요합니다.', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # 파일 크기 제한 에러 핸들러
 @app.errorhandler(413)
 def too_large(e):
@@ -101,6 +110,7 @@ class Product(db.Model):
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Can be null for non-member orders
     customer_name = db.Column(db.String(100), nullable=False)
     customer_phone = db.Column(db.String(20), nullable=False)
     total_amount = db.Column(db.Float, nullable=False)
@@ -126,6 +136,34 @@ class Payment(db.Model):
     payment_method = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=korea_now)
     updated_at = db.Column(db.DateTime, default=korea_now, onupdate=korea_now)
+
+from werkzeug.security import generate_password_hash, check_password_hash
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    points = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=korea_now)
+
+    # Relationships
+    orders = db.relationship('Order', backref='user', lazy=True)
+    point_history = db.relationship('PointHistory', backref='user', lazy=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+class PointHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
+    points_change = db.Column(db.Integer, nullable=False)
+    reason = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, default=korea_now)
 
 class AudioSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -259,6 +297,82 @@ def remove_from_cart_post():
 def order_success(order_id):
     order = Order.query.get_or_404(order_id)
     return render_template('order_success.html', order=order)
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        if password != confirm_password:
+            flash('비밀번호가 일치하지 않습니다.', 'error')
+            return redirect(url_for('register'))
+
+        if User.query.filter_by(username=username).first():
+            flash('이미 존재하는 사용자 이름입니다.', 'error')
+            return redirect(url_for('register'))
+
+        if User.query.filter_by(email=email).first():
+            flash('이미 사용 중인 이메일입니다.', 'error')
+            return redirect(url_for('register'))
+
+        new_user = User(username=username, email=email)
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+
+        flash('성공적으로 가입되었습니다! 로그인해주세요.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+
+        if user and user.check_password(password):
+            session['user_id'] = user.id
+            session['username'] = user.username
+            flash(f'{user.username}님, 환영합니다!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('사용자 이름 또는 비밀번호가 올바르지 않습니다.', 'error')
+            return redirect(url_for('login'))
+
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    session.pop('username', None)
+    flash('성공적으로 로그아웃되었습니다.', 'info')
+    return redirect(url_for('index'))
+
+@app.route('/mypage')
+@login_required
+def mypage():
+    user = User.query.get_or_404(session['user_id'])
+    return render_template('mypage.html', user=user)
+
+@app.route('/api/set_customer', methods=['POST'])
+def set_customer():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'error': 'User ID is required'}), 400
+
+    user = User.query.get(user_id)
+    if user:
+        session['scanned_customer_id'] = user.id
+        return jsonify({'success': True, 'username': user.username})
+    else:
+        return jsonify({'success': False, 'error': 'User not found'}), 404
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -445,8 +559,10 @@ def request_payment():
         if not cart_items:
             return jsonify({'error': '장바구니에 유효한 상품이 없습니다.'}), 400
         
-        # 주문 생성
+        # 주문 생성 시, 스캔된 고객 또는 로그인한 사용자 ID를 사용
+        user_id_for_order = session.get('scanned_customer_id') or session.get('user_id')
         order = Order(
+            user_id=user_id_for_order,
             customer_name=request.form.get('customer_name', '고객'),
             customer_phone=request.form.get('customer_phone', '000-0000-0000'),
             total_amount=total
@@ -561,6 +677,24 @@ def payment_success():
             payment_result = response.json()
             
             order.status = 'completed'
+
+            # 포인트 적립 로직
+            if order.user_id:
+                user = User.query.get(order.user_id)
+                if user:
+                    points_earned = int(order.total_amount * 0.01) # 결제 금액의 1%를 포인트로 적립
+                    if points_earned > 0:
+                        user.points += points_earned
+                        
+                        # 포인트 내역 기록
+                        history = PointHistory(
+                            user_id=user.id,
+                            order_id=order.id,
+                            points_change=points_earned,
+                            reason=f"Order #{order.id} purchase"
+                        )
+                        db.session.add(history)
+            
             db.session.commit()
             
             # 결제 정보 생성 또는 업데이트
@@ -581,8 +715,9 @@ def payment_success():
             
             db.session.commit()
             
-            # 장바구니 비우기
+            # 장바구니와 스캔된 고객 정보 비우기
             session.pop('cart', None)
+            session.pop('scanned_customer_id', None)
             
             if request.method == 'POST':
                 return jsonify({
@@ -1118,6 +1253,37 @@ def generate_lottery_qr():
         
     except Exception as e:
         return jsonify({'error': f'뽑기 QR코드 생성 실패: {str(e)}'}), 500
+
+@app.route('/generate_user_qr')
+@login_required
+def generate_user_qr():
+    """Generates a QR code for the logged-in user."""
+    user_id = session.get('user_id')
+    
+    # Create data payload for QR code
+    qr_data = {
+        "type": "user_points_id",
+        "user_id": user_id
+    }
+    
+    # Generate QR code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(json.dumps(qr_data))
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    # Save QR code to a bytes buffer
+    buffer = BytesIO()
+    img.save(buffer, format='PNG')
+    buffer.seek(0)
+
+    return send_file(buffer, mimetype='image/png')
 
 # Content Security Policy 헤더 설정
 @app.after_request

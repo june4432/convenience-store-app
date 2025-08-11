@@ -277,6 +277,25 @@
                     
                     <!-- 장바구니 요약 -->
                     <div class="border-top p-3">
+                        <!-- 포인트 적립 고객 섹션 -->
+                        <div class="mb-3">
+                            {% if not session.user_id %}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted">적립 고객:</span>
+                                <span id="points-customer-name" class="fw-bold">없음</span>
+                            </div>
+                            <button class="btn btn-outline-success btn-sm w-100" id="scan-customer-qr-btn">
+                                <i class="fas fa-user-check me-1"></i>고객 QR 스캔
+                            </button>
+                            {% else %}
+                            <div class="alert alert-success py-2">
+                                <i class="fas fa-check-circle me-1"></i>
+                                <strong>{{ session.username }}</strong>님에게 포인트가 자동 적립됩니다.
+                            </div>
+                            {% endif %}
+                        </div>
+                        <hr>
+
                         <!-- 쿠폰 섹션 -->
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -340,6 +359,21 @@
     </div>
 </div>
 
+<!-- 고객 QR 스캐너 모달 -->
+<div class="modal fade" id="customerQrScannerModal" tabindex="-1" aria-labelledby="customerQrScannerModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="customerQrScannerModalLabel">고객 포인트 QR 스캔</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="customer-qr-reader" style="width: 100%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- QR코드 스캔 모달 -->
 <div class="modal fade" id="qrScannerModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg">
@@ -391,8 +425,11 @@
 <!-- 토스페이먼츠 SDK -->
 <script src="https://js.tosspayments.com/v2/standard"></script>
 
-<!-- QR코드 스캔 라이브러리 -->
+<!-- QR코드 스캔 라이브러리 (기존 쿠폰용) -->
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+<!-- QR코드 스캔 라이브러리 (고객 인식용) -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
 
 
@@ -413,7 +450,78 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // iOS Safari용 사용자 상호작용 감지
     setupIOSAudioSupport();
+
+    // 고객 QR 스캐너 설정
+    setupCustomerQrScanner();
 });
+
+// --- 고객 QR 스캐너 관련 로직 ---
+function setupCustomerQrScanner() {
+    const scanButton = document.getElementById('scan-customer-qr-btn');
+    if (!scanButton) {
+        // 로그인 상태이거나 버튼이 없으면 스캐너를 설정하지 않음
+        return;
+    }
+
+    const customerQrScannerModal = new bootstrap.Modal(document.getElementById('customerQrScannerModal'));
+    const html5QrCode = new Html5Qrcode("customer-qr-reader");
+
+    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+        try {
+            const data = JSON.parse(decodedText);
+            if (data.type === 'user_points_id' && data.user_id) {
+                // 스캔 성공, 서버에 고객 정보 전송
+                setPointsCustomer(data.user_id);
+                html5QrCode.stop().then(ignore => {
+                    customerQrScannerModal.hide();
+                }).catch(err => console.error("Error stopping scanner:", err));
+            } else {
+                showToast('유효하지 않은 고객 QR코드입니다.', 'error');
+            }
+        } catch (e) {
+            showToast('잘못된 형식의 QR코드입니다.', 'error');
+        }
+    };
+
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    scanButton.addEventListener('click', () => {
+        customerQrScannerModal.show();
+        html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
+            .catch(err => {
+                console.error("Cannot start QR scanner", err);
+                showToast("카메라를 시작할 수 없습니다.", "error");
+            });
+    });
+
+    // 모달이 닫힐 때 카메라 중지
+    document.getElementById('customerQrScannerModal').addEventListener('hidden.bs.modal', () => {
+        if (html5QrCode.isScanning) {
+            html5QrCode.stop().catch(err => {});
+        }
+    });
+}
+
+function setPointsCustomer(userId) {
+    fetch('/api/set_customer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('points-customer-name').textContent = data.username;
+            showToast(`${data.username}님이 적립 고객으로 설정되었습니다.`, 'success');
+        } else {
+            showToast(data.error || '고객 정보를 설정하는 데 실패했습니다.', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error setting customer:', err);
+        showToast('서버 통신 중 오류가 발생했습니다.', 'error');
+    });
+}
 
 // 이벤트 리스너 설정
 function setupEventListeners() {
