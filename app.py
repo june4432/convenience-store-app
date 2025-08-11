@@ -24,7 +24,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///convenience_store.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'convenience_store.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # 파일 업로드 크기 제한 (50MB)
