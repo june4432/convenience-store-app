@@ -40,7 +40,7 @@
             <h4 class="mb-0"><i class="fas fa-plus"></i> 상품 등록</h4>
         </div>
         <div class="card-body">
-            <form action="{{ url_for('add_product') }}" method="POST" enctype="multipart/form-data">
+            <form id="addProductForm" action="{{ url_for('add_product') }}" method="POST" enctype="multipart/form-data">
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">
@@ -72,12 +72,40 @@
                         </div>
                         <div class="mb-3">
                             <label for="image" class="form-label">상품 이미지</label>
-                            <input type="file" class="form-control" id="image" name="image" accept="image/*">
-                            <div class="form-text">JPG, PNG, GIF 파일만 업로드 가능합니다. (최대 5MB)</div>
+                            <div class="border rounded p-3" id="image-drop-zone" style="min-height: 120px; border-style: dashed !important;">
+                                <div class="text-center" id="image-drop-content">
+                                    <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                                    <p class="mb-2">이미지를 드래그하여 놓거나 클릭해서 선택하세요</p>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('image').click()">
+                                        <i class="fas fa-folder-open me-1"></i>파일 선택
+                                    </button>
+                                </div>
+                                <input type="file" class="d-none" id="image" name="image" accept="image/*">
+                            </div>
+                            <div class="form-text">JPG, PNG, GIF, WebP 파일 지원 | 10MB 이상 시 자동 압축</div>
+                            
+                            <!-- 압축 진행률 표시 -->
+                            <div id="compression-progress" class="mt-2" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">이미지 압축 중...</small>
+                                    <span id="compression-percent" class="badge bg-info">0%</span>
+                                </div>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div id="compression-bar" class="progress-bar bg-info" style="width: 0%"></div>
+                                </div>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <div id="image-preview" class="d-none">
-                                <img id="preview-img" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                                <div class="text-center">
+                                    <img id="preview-img" class="img-thumbnail mt-1" style="max-width: 200px; max-height: 200px;">
+                                    <div id="image-info" class="mt-2">
+                                        <small class="text-muted">
+                                            <div>크기: <span id="image-size"></span></div>
+                                            <div>해상도: <span id="image-dimensions"></span></div>
+                                        </small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -312,7 +340,28 @@
                             </div>
                             <div class="mb-3">
                                 <label for="edit-image" class="form-label">상품 이미지</label>
-                                <input type="file" class="form-control" id="edit-image" name="image" accept="image/*">
+                                <div class="border rounded p-3" id="edit-image-drop-zone" style="min-height: 120px; border-style: dashed !important;">
+                                    <div class="text-center" id="edit-image-drop-content">
+                                        <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                                        <p class="mb-2">이미지를 드래그하여 놓거나 클릭해서 선택하세요</p>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('edit-image').click()">
+                                            <i class="fas fa-folder-open me-1"></i>파일 선택
+                                        </button>
+                                    </div>
+                                    <input type="file" class="d-none" id="edit-image" name="image" accept="image/*">
+                                </div>
+                                <div class="form-text">JPG, PNG, GIF, WebP 파일 지원 | 10MB 이상 시 자동 압축</div>
+                                
+                                <!-- 압축 진행률 표시 -->
+                                <div id="edit-compression-progress" class="mt-2" style="display: none;">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">이미지 압축 중...</small>
+                                        <span id="edit-compression-percent" class="badge bg-info">0%</span>
+                                    </div>
+                                    <div class="progress mt-1" style="height: 4px;">
+                                        <div id="edit-compression-bar" class="progress-bar bg-info" style="width: 0%"></div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <div id="edit-image-preview">
@@ -517,18 +566,460 @@
         });
     </script>
 <script>
-// 이미지 미리보기
+// 이미지 압축 및 처리 함수들
+class ImageCompressor {
+    constructor() {
+        this.maxWidth = 1920;
+        this.maxHeight = 1920;
+        this.quality = 0.8;
+        this.maxSizeKB = 2048; // 2MB
+    }
+
+    // 파일 크기를 사람이 읽기 쉬운 형태로 변환
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // 이미지 압축 함수
+    compressImage(file, options = {}) {
+        return new Promise((resolve, reject) => {
+            const {
+                maxWidth = this.maxWidth,
+                maxHeight = this.maxHeight,
+                quality = this.quality,
+                onProgress = () => {}
+            } = options;
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            img.onload = () => {
+                onProgress(25); // 25% - 이미지 로드 완료
+
+                // 원본 크기 계산
+                let { width, height } = img;
+                
+                // 비율 유지하면서 최대 크기 제한
+                if (width > maxWidth || height > maxHeight) {
+                    const ratio = Math.min(maxWidth / width, maxHeight / height);
+                    width *= ratio;
+                    height *= ratio;
+                }
+
+                onProgress(50); // 50% - 크기 계산 완료
+
+                canvas.width = width;
+                canvas.height = height;
+
+                // 이미지 그리기
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                onProgress(75); // 75% - 캔버스 그리기 완료
+
+                // Blob으로 변환
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        onProgress(100); // 100% - 압축 완료
+                        resolve({
+                            blob,
+                            width,
+                            height,
+                            originalSize: file.size,
+                            compressedSize: blob.size,
+                            compressionRatio: ((file.size - blob.size) / file.size * 100).toFixed(1)
+                        });
+                    } else {
+                        reject(new Error('이미지 압축에 실패했습니다.'));
+                    }
+                }, 'image/jpeg', quality);
+            };
+
+            img.onerror = () => reject(new Error('이미지 로드에 실패했습니다.'));
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
+    // 압축이 필요한지 확인
+    needsCompression(file) {
+        const sizeKB = file.size / 1024;
+        return sizeKB > 10 * 1024; // 10MB 이상
+    }
+}
+
+// 전역 이미지 압축기 인스턴스
+const imageCompressor = new ImageCompressor();
+
+// 파일 처리 함수
+async function processImageFile(file, targetInputId, previewConfig) {
+    const {
+        previewImg,
+        originalImg,
+        originalPreview,
+        imageSize,
+        imageDimensions,
+        originalSize,
+        originalDimensions,
+        compressionProgress,
+        compressionPercent,
+        compressionBar,
+        imagePreview,
+        dropZone,
+        dropContent
+    } = previewConfig;
+
+    try {
+        // 이미지 파일인지 확인
+        if (!file.type.startsWith('image/')) {
+            alert('이미지 파일만 업로드 가능합니다.');
+            return;
+        }
+
+        // 원본 정보는 콘솔에만 표시
+        const img = new Image();
+        img.onload = () => {
+            console.log(`원본 이미지 정보: ${img.width} × ${img.height}px, ${imageCompressor.formatFileSize(file.size)}`);
+        };
+        img.src = URL.createObjectURL(file);
+
+        // 압축이 필요한지 확인
+        if (imageCompressor.needsCompression(file)) {
+            // 압축 진행률 표시
+            compressionProgress.style.display = 'block';
+            
+            const compressedResult = await imageCompressor.compressImage(file, {
+                onProgress: (percent) => {
+                    compressionPercent.textContent = `${percent}%`;
+                    compressionBar.style.width = `${percent}%`;
+                }
+            });
+
+            // 압축된 파일을 새로운 File 객체로 생성
+            const compressedFile = new File([compressedResult.blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now()
+            });
+
+            // input에 압축된 파일 설정
+            const dt = new DataTransfer();
+            dt.items.add(compressedFile);
+            targetInputId.files = dt.files;
+
+            // 미리보기 업데이트
+            previewImg.src = URL.createObjectURL(compressedResult.blob);
+            imageSize.textContent = imageCompressor.formatFileSize(compressedResult.compressedSize);
+            imageDimensions.textContent = `${compressedResult.width} × ${compressedResult.height}px`;
+
+            // 압축 완료 후 진행률 숨기기
+            setTimeout(() => {
+                compressionProgress.style.display = 'none';
+            }, 1000);
+
+            console.log(`이미지 압축 완료: ${compressedResult.compressionRatio}% 압축`);
+        } else {
+            // 압축이 필요없는 경우 원본 그대로 사용
+            previewImg.src = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                imageSize.textContent = imageCompressor.formatFileSize(file.size);
+                imageDimensions.textContent = `${img.width} × ${img.height}px`;
+            };
+            img.src = URL.createObjectURL(file);
+        }
+
+        // 미리보기 표시
+        imagePreview.classList.remove('d-none');
+
+        // 드롭존 스타일 변경
+        if (dropZone && dropContent) {
+            dropContent.innerHTML = `
+                <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                <p class="mb-2 text-success">이미지가 업로드되었습니다</p>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('${targetInputId.id}').click()">
+                    <i class="fas fa-exchange-alt me-1"></i>다른 이미지 선택
+                </button>
+            `;
+        }
+
+    } catch (error) {
+        console.error('이미지 처리 오류:', error);
+        alert('이미지 처리 중 오류가 발생했습니다: ' + error.message);
+        
+        // 진행률 숨기기
+        compressionProgress.style.display = 'none';
+    }
+}
+
+// 드래그 앤 드롭 기능 추가
+function setupDragAndDrop(dropZone, input, previewConfig) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        dropZone.style.backgroundColor = '#e3f2fd';
+        dropZone.style.borderColor = '#2196f3';
+    }
+
+    function unhighlight(e) {
+        dropZone.style.backgroundColor = '';
+        dropZone.style.borderColor = '';
+    }
+
+    dropZone.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type.startsWith('image/')) {
+                // input에 파일 설정
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                input.files = dataTransfer.files;
+
+                // 파일 처리
+                processImageFile(file, input, previewConfig);
+            } else {
+                alert('이미지 파일만 업로드 가능합니다.');
+            }
+        }
+    }
+}
+
+// 새 상품 등록 이미지 처리
 document.getElementById('image').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('preview-img').src = e.target.result;
-            document.getElementById('image-preview').classList.remove('d-none');
+        const previewConfig = {
+            previewImg: document.getElementById('preview-img'),
+            originalImg: null,
+            originalPreview: null,
+            imageSize: document.getElementById('image-size'),
+            imageDimensions: document.getElementById('image-dimensions'),
+            originalSize: null,
+            originalDimensions: null,
+            compressionProgress: document.getElementById('compression-progress'),
+            compressionPercent: document.getElementById('compression-percent'),
+            compressionBar: document.getElementById('compression-bar'),
+            imagePreview: document.getElementById('image-preview'),
+            dropZone: document.getElementById('image-drop-zone'),
+            dropContent: document.getElementById('image-drop-content')
         };
-        reader.readAsDataURL(file);
+        
+        processImageFile(file, this, previewConfig);
     }
 });
+
+// 상품 등록 폼 submit 처리
+document.getElementById('addProductForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+    
+    // 버튼 비활성화 및 로딩 표시
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> 등록 중...';
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (response.ok) {
+            // 성공 알림 표시
+            showSuccessNotification('상품이 성공적으로 등록되었습니다!');
+            
+            // 폼 리셋
+            this.reset();
+            
+            // 이미지 미리보기 숨기기
+            document.getElementById('image-preview').classList.add('d-none');
+            
+            // 드롭존 초기화
+            const dropContent = document.getElementById('image-drop-content');
+            dropContent.innerHTML = `
+                <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                <p class="mb-2">이미지를 드래그하여 놓거나 클릭해서 선택하세요</p>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('image').click()">
+                    <i class="fas fa-folder-open me-1"></i>파일 선택
+                </button>
+            `;
+            
+            // 1.5초 후 페이지 새로고침으로 상품 목록 업데이트
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            response.json().then(data => {
+                showErrorNotification(data.error || '상품 등록 중 오류가 발생했습니다.');
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showErrorNotification('상품 등록 중 오류가 발생했습니다.');
+    })
+    .finally(() => {
+        // 버튼 복구
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+    });
+});
+
+// 성공 알림 표시 함수
+function showSuccessNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'position-fixed top-0 start-50 translate-middle-x p-3';
+    notification.style.zIndex = '9999';
+    notification.innerHTML = `
+        <div class="alert alert-success alert-dismissible fade show shadow-lg" role="alert" style="min-width: 300px;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-check-circle fa-lg text-success me-3"></i>
+                <div>
+                    <strong>등록 완료!</strong><br>
+                    <small>${message}</small>
+                </div>
+            </div>
+            <button type="button" class="btn-close" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    document.body.appendChild(notification);
+    
+    // 5초 후 자동 제거
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// 에러 알림 표시 함수
+function showErrorNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'position-fixed top-0 start-50 translate-middle-x p-3';
+    notification.style.zIndex = '9999';
+    notification.innerHTML = `
+        <div class="alert alert-danger alert-dismissible fade show shadow-lg" role="alert" style="min-width: 300px;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-exclamation-circle fa-lg text-danger me-3"></i>
+                <div>
+                    <strong>오류 발생!</strong><br>
+                    <small>${message}</small>
+                </div>
+            </div>
+            <button type="button" class="btn-close" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    document.body.appendChild(notification);
+    
+    // 7초 후 자동 제거
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 7000);
+}
+
+// 새 상품 등록 드래그 앤 드롭 설정
+document.addEventListener('DOMContentLoaded', function() {
+    const previewConfig = {
+        previewImg: document.getElementById('preview-img'),
+        originalImg: null,
+        originalPreview: null,
+        imageSize: document.getElementById('image-size'),
+        imageDimensions: document.getElementById('image-dimensions'),
+        originalSize: null,
+        originalDimensions: null,
+        compressionProgress: document.getElementById('compression-progress'),
+        compressionPercent: document.getElementById('compression-percent'),
+        compressionBar: document.getElementById('compression-bar'),
+        imagePreview: document.getElementById('image-preview'),
+        dropZone: document.getElementById('image-drop-zone'),
+        dropContent: document.getElementById('image-drop-content')
+    };
+
+    setupDragAndDrop(
+        document.getElementById('image-drop-zone'),
+        document.getElementById('image'),
+        previewConfig
+    );
+
+    // 편집 모달 이미지 처리 설정
+    setupEditImageHandling();
+});
+
+// 편집 모달 이미지 처리
+function setupEditImageHandling() {
+    const editImageInput = document.getElementById('edit-image');
+    const editDropZone = document.getElementById('edit-image-drop-zone');
+
+    if (!editImageInput || !editDropZone) return;
+
+    // 편집 모달 이미지 변경 처리
+    editImageInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const previewConfig = {
+                previewImg: document.getElementById('edit-preview-img'),
+                originalImg: null, // 편집 모달에서는 원본 비교 안함
+                originalPreview: null,
+                imageSize: null,
+                imageDimensions: null,
+                originalSize: null,
+                originalDimensions: null,
+                compressionProgress: document.getElementById('edit-compression-progress'),
+                compressionPercent: document.getElementById('edit-compression-percent'),
+                compressionBar: document.getElementById('edit-compression-bar'),
+                imagePreview: document.getElementById('edit-image-preview'),
+                dropZone: document.getElementById('edit-image-drop-zone'),
+                dropContent: document.getElementById('edit-image-drop-content')
+            };
+            
+            processImageFile(file, this, previewConfig);
+        }
+    });
+
+    // 편집 모달 드래그 앤 드롭 설정
+    const editPreviewConfig = {
+        previewImg: document.getElementById('edit-preview-img'),
+        originalImg: null,
+        originalPreview: null,
+        imageSize: null,
+        imageDimensions: null,
+        originalSize: null,
+        originalDimensions: null,
+        compressionProgress: document.getElementById('edit-compression-progress'),
+        compressionPercent: document.getElementById('edit-compression-percent'),
+        compressionBar: document.getElementById('edit-compression-bar'),
+        imagePreview: document.getElementById('edit-image-preview'),
+        dropZone: document.getElementById('edit-image-drop-zone'),
+        dropContent: document.getElementById('edit-image-drop-content')
+    };
+
+    setupDragAndDrop(editDropZone, editImageInput, editPreviewConfig);
+}
 
 // 상품 수정
 function editProduct(productId) {
@@ -542,12 +1033,37 @@ function editProduct(productId) {
             document.getElementById('edit-stock').value = data.stock;
             document.getElementById('edit-description').value = data.description || '';
             
+            // 이미지 미리보기 초기화
+            const editDropContent = document.getElementById('edit-image-drop-content');
+            const editImagePreview = document.getElementById('edit-image-preview');
+            
             if (data.image_url) {
                 document.getElementById('edit-preview-img').src = data.image_url;
-                document.getElementById('edit-image-preview').style.display = 'block';
+                editImagePreview.style.display = 'block';
+                
+                // 드롭존 스타일 변경 (기존 이미지 있음)
+                editDropContent.innerHTML = `
+                    <i class="fas fa-image fa-2x text-primary mb-2"></i>
+                    <p class="mb-2">기존 이미지가 있습니다</p>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('edit-image').click()">
+                        <i class="fas fa-exchange-alt me-1"></i>이미지 변경
+                    </button>
+                `;
             } else {
-                document.getElementById('edit-image-preview').style.display = 'none';
+                editImagePreview.style.display = 'none';
+                
+                // 드롭존 초기화
+                editDropContent.innerHTML = `
+                    <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                    <p class="mb-2">이미지를 드래그하여 놓거나 클릭해서 선택하세요</p>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('edit-image').click()">
+                        <i class="fas fa-folder-open me-1"></i>파일 선택
+                    </button>
+                `;
             }
+            
+            // 압축 진행률 숨기기
+            document.getElementById('edit-compression-progress').style.display = 'none';
             
             document.getElementById('editProductForm').dataset.productId = productId;
             new bootstrap.Modal(document.getElementById('editProductModal')).show();
